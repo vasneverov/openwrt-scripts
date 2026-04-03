@@ -9,8 +9,10 @@ uci set tailscale.settings.fw_mode='nftables'
 uci commit tailscale
 
 /etc/init.d/tailscale enable
-/etc/init.d/tailscale restart
-sleep 5
+/etc/init.d/tailscale stop 2>/dev/null
+tailscaled --state=/var/lib/tailscale/tailscaled.state \
+           --socket=/var/run/tailscale/tailscaled.sock &
+sleep 3
 
 cat >/etc/rc.local <<'EOF'
 #!/bin/sh
