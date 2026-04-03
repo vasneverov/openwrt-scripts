@@ -4,6 +4,7 @@ wget -O /etc/apk/keys/gunanovo@github.io.pub https://gunanovo.github.io/openwrt-
 echo "https://gunanovo.github.io/openwrt-tailscale/$(cat /etc/apk/arch)/packages.adb" >> /etc/apk/repositories.d/customfeeds.list
 apk update
 apk add tailscale iptables ip6tables
+pkill -f tailscaled 2>/dev/null; sleep 1
 
 uci set tailscale.settings.fw_mode='nftables'
 uci commit tailscale
