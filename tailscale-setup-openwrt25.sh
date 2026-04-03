@@ -22,8 +22,7 @@ exit 0
 EOF
 chmod +x /etc/rc.local
 
-tailscale up --accept-dns=false --accept-routes --reset && \
-tailscale serve --bg --tcp 80  tcp://localhost:80 && \
-tailscale serve --bg --tcp 443 tcp://localhost:443 && \
-tailscale serve --bg --tcp 22  tcp://localhost:22 && \
+tailscale serve --bg --tcp 80  tcp://localhost:80
+tailscale serve --bg --tcp 443 tcp://localhost:443
+tailscale serve --bg --tcp 22  tcp://localhost:22
 tailscale serve status
