@@ -136,7 +136,7 @@ ok "Tailscale установлен и пофикшен"
 step "5/5 Авторизация Tailscale"
 info "Запускаю tailscale up..."
 
-$SSHR 'tailscale up --accept-dns=false --accept-routes --reset > /tmp/tsup.log 2>&1 &'
+$SSHR 'setsid tailscale up --accept-dns=false --accept-routes --reset > /tmp/tsup.log 2>&1 &'
 sleep 6
 
 AUTH_URL=$($SSHR 'cat /tmp/tsup.log 2>/dev/null' | grep 'https://login.tailscale.com' | head -1 | tr -d '[:space:]')
