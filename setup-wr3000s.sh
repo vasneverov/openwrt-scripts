@@ -1,20 +1,22 @@
 #!/bin/bash
 # =============================================================================
-# setup-wr3000h.sh — Cudy WR3000H (OpenWrt 25.12)
+# setup-wr3000s.sh — Cudy WR3000S (OpenWrt 25.12)
 # =============================================================================
-# Использование: ./setup-wr3000h.sh <NNN>
-# Пример:        ./setup-wr3000h.sh 112
+# Использование: ./setup-wr3000s.sh <NNN>
+# Пример:        ./setup-wr3000s.sh 112
 #
 # Предусловия:
-#   - Роутер прошит OpenWrt 25.12, доступен на 192.168.1.1 (без пароля)
-#   - Mac подключён кабелем
+#   - Роутер на OpenWrt (stock Cudy или свежая прошивка), IP 192.168.1.1
+#   - Firmware 25.12 в ~/Downloads/WR3000S V1/
+#   - Mac подключён кабелем (DHCP)
 #   - sshpass: brew install sshpass
 # =============================================================================
 
 set -e
 NNN="$1"
 PASS="56756789"
-TEMPLATE="$HOME/Downloads/WR3000H/backup-wr3000h-template.tar.gz"
+FIRMWARE="$HOME/Downloads/WR3000S V1/openwrt-25.12.0-mediatek-filogic-cudy_wr3000s-v1-squashfs-sysupgrade.bin"
+TEMPLATE="$HOME/Downloads/WR3000S V1/backup-wr3000s-template.tar.gz"
 KEYS="$(dirname "$0")/../keys.conf"
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; CYAN='\033[0;36m'; NC='\033[0m'
@@ -23,8 +25,9 @@ info() { echo -e "${YELLOW}➡  $*${NC}"; }
 step() { echo -e "${CYAN}════ $* ════${NC}"; }
 fail() { echo -e "${RED}❌ $*${NC}"; exit 1; }
 
-[ -z "$NNN" ] && fail "Укажи номер: ./setup-wr3000h.sh 112"
+[ -z "$NNN" ] && fail "Укажи номер: ./setup-wr3000s.sh 112"
 [ ! -f "$KEYS" ] && fail "Нет файла ключей: $KEYS"
+[ ! -f "$FIRMWARE" ] && fail "Нет прошивки: $FIRMWARE"
 [ ! -f "$TEMPLATE" ] && fail "Нет шаблона: $TEMPLATE"
 
 VLESS_MAIN=$(grep "^${NNN}_main=" "$KEYS" | cut -d'=' -f2-)
@@ -34,23 +37,39 @@ VLESS_YT=$(grep "^${NNN}_yt=" "$KEYS" | cut -d'=' -f2-)
 
 SSH1="ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 root@192.168.1.1"
 SSHR="sshpass -p $PASS ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 root@192.168.5.1"
-SCPR="sshpass -p $PASS scp -O -o StrictHostKeyChecking=no"
 
 echo ""
 echo "╔══════════════════════════════════════╗"
-echo "║   Настройка z56-${NNN} (WR3000H)       ║"
+echo "║   Настройка z56-${NNN} (WR3000S)       ║"
 echo "╚══════════════════════════════════════╝"
 echo ""
 
-# ── ШАГ 1: Проверка 192.168.1.1 ──────────────────────────────────────────────
-step "1/5 Проверка роутера на 192.168.1.1"
+# ── ШАГ 1: Прошивка OpenWrt 25.12 ────────────────────────────────────────────
+step "1/5 Прошивка OpenWrt 25.12 через SSH"
 ping -c 2 -W 2 192.168.1.1 > /dev/null 2>&1 || fail "192.168.1.1 недоступен"
 ssh-keygen -R 192.168.1.1 2>/dev/null || true
-VER=$($SSH1 'cat /etc/openwrt_release | grep RELEASE' 2>/dev/null)
+VER=$($SSH1 'cat /etc/openwrt_release | grep RELEASE' 2>/dev/null || echo "unknown")
 ok "Роутер: $VER"
 
+info "Загружаю прошивку на роутер..."
+scp -O -o StrictHostKeyChecking=no "$FIRMWARE" root@192.168.1.1:/tmp/sysupgrade.bin
+info "Запускаю sysupgrade -n (роутер уйдёт в перезагрузку)..."
+$SSH1 'sysupgrade -n /tmp/sysupgrade.bin' 2>/dev/null || true
+
+info "Жду пока поднимется OpenWrt 25.12 на 192.168.1.1..."
+sleep 20
+for i in $(seq 1 30); do
+  sleep 5
+  result=$($SSH1 'cat /etc/openwrt_release | grep RELEASE' 2>/dev/null)
+  if echo "$result" | grep -q "25.12"; then
+    ok "OpenWrt 25.12 загрузился"
+    break
+  fi
+  echo "  [$i/30] ещё не готов..."
+done
+
 # ── ШАГ 2: Шаблон → 192.168.5.1 ──────────────────────────────────────────────
-step "2/5 Заливаю шаблон, жду перезагрузки на 192.168.5.1"
+step "2/5 Заливаю шаблон S, жду перезагрузки на 192.168.5.1"
 scp -O -o StrictHostKeyChecking=no "$TEMPLATE" root@192.168.1.1:/tmp/backup.tar.gz
 $SSH1 "cd / && tar xzf /tmp/backup.tar.gz && reboot" 2>/dev/null || true
 
@@ -74,7 +93,6 @@ uci commit system
 echo 'z56-${NNN}' > /proc/sys/kernel/hostname
 printf 'y\n' | sh <(wget -O - https://raw.githubusercontent.com/itdoginfo/podkop/refs/heads/main/install.sh) 2>&1
 
-# Podkop config
 uci set podkop.settings.dns_server='1.1.1.1'
 uci set podkop.settings.bootstrap_dns_server='1.1.1.1'
 uci set podkop.settings.dns_type='udp'

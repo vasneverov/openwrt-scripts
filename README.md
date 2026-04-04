@@ -1,101 +1,99 @@
 # openwrt-scripts
 
-Скрипты для автоматической настройки роутеров на OpenWrt с Podkop и Tailscale.
+Скрипты для автоматической прошивки и настройки роутеров Cudy на OpenWrt 25.12.
+Делают всё: прошивка → шаблон → Podkop → Tailscale → авторизация.
+
+---
+
+## Структура
+
+```
+~/CLAUDECODE/
+├── keys.conf                 ← ключи vless (не в репо, хранится локально)
+├── WR3000H/setup-wr3000h.sh ← для Cudy WR3000H
+└── WR3000S/setup-wr3000s.sh ← для Cudy WR3000S
+```
+
+## Предусловия
+
+- Mac подключён кабелем к роутеру
+- sshpass: `brew install sshpass`
+- Файл `keys.conf` на уровень выше скрипта (см. формат ниже)
+- Шаблоны конфигов: `~/Downloads/WR3000H/backup-wr3000h-template.tar.gz` и `~/Downloads/WR3000S V1/backup-wr3000s-template.tar.gz`
 
 ---
 
 ## setup-wr3000h.sh — Cudy WR3000H (OpenWrt 25.12)
 
-Один скрипт делает всё с Mac по кабелю: hostname, Podkop, Tailscale.
-
-### Предусловия
-
-1. Прошит OpenWrt 25.12 через веб-интерфейс
-2. Залит шаблон конфига → роутер на IP `192.168.5.1`, пароль `56756789`
-3. Mac подключён к роутеру кабелем
-4. Установлен `sshpass`: `brew install sshpass`
-
-### Запуск
-
+**Запуск:**
 ```bash
-chmod +x setup-wr3000h.sh
-./setup-wr3000h.sh 111   # где 111 — номер роутера (z56-111)
+./setup-wr3000h.sh 112   # 112 — номер роутера (z56-112)
 ```
 
-Скрипт попросит вставить два vless-ключа: main (обход РФ) и yt (YouTube).
+**Предусловие:** роутер прошит OpenWrt 25.12, доступен на `192.168.1.1` без пароля.
+
+### Шаги
+
+| # | Что делает |
+|---|-----------|
+| 1 | Проверяет `192.168.1.1` |
+| 2 | Заливает шаблон `backup-wr3000h-template.tar.gz`, ждёт ребута на `192.168.5.1` |
+| 3 | Устанавливает Podkop, настраивает `main` (20 сервисов) + `yt` (YouTube) |
+| 4 | Устанавливает Tailscale, фиксит два бага OpenWrt 25.12 |
+| 5 | Запускает авторизацию, открывает браузер, **сам ждёт** пока нажмёшь |
 
 ---
 
-### Что делает скрипт — по шагам
+## setup-wr3000s.sh — Cudy WR3000S (OpenWrt 25.12)
 
-#### Шаг 1 — Проверка доступности
-Пингует `192.168.5.1`. Если нет ответа — стоп с ошибкой.
+**Запуск:**
+```bash
+./setup-wr3000s.sh 112   # 112 — номер роутера (z56-112)
+```
 
-#### Шаг 2 — Hostname + Podkop
-- Переименовывает роутер в `z56-NNN` через UCI
-- Устанавливает Podkop через официальный скрипт (всегда последняя версия):
-  ```
-  sh <(wget -O - https://raw.githubusercontent.com/itdoginfo/podkop/refs/heads/main/install.sh)
-  ```
-  На вопрос про русский язык автоматически отвечает `y`
+**Предусловие:** роутер на любой OpenWrt-прошивке, доступен на `192.168.1.1`.
 
-#### Шаг 3 — Настройка Podkop
+### Шаги
 
-**Профиль `main`** — обход блокировок РФ:
-- 20 community_lists: `telegram meta geoblock block porn news anime discord twitter hdrezka tiktok cloudflare google_ai google_play hodca roblox hetzner ovh digitalocean cloudfront`
-- Ключ: вводится при запуске
+| # | Что делает |
+|---|-----------|
+| 1 | Прошивает OpenWrt 25.12 через SSH (`sysupgrade -n`) |
+| 2 | Заливает шаблон `backup-wr3000s-template.tar.gz`, ждёт ребута на `192.168.5.1` |
+| 3 | Устанавливает Podkop, настраивает `main` (20 сервисов) + `yt` (YouTube) |
+| 4 | Устанавливает Tailscale, фиксит два бага OpenWrt 25.12 |
+| 5 | Запускает авторизацию, открывает браузер, **сам ждёт** пока нажмёшь |
 
-**Профиль `yt`** — YouTube отдельным маршрутом:
-- community_lists: только `youtube`
-- Ключ: вводится при запуске
+---
 
-> **Критично:** секции Podkop должны иметь тип `section` (не `podkop`).
-> `community_lists` — только через `uci add_list`, не `option`.
+## Два бага Tailscale в OpenWrt 25.12
 
-#### Шаг 4 — Фикс Tailscale (два бага OpenWrt 25.12)
-
-В дефолтном пакете Tailscale для OpenWrt 25.12 два бага в `/etc/init.d/tailscale`:
+В дефолтном пакете `/etc/init.d/tailscale` два бага:
 
 **Баг 1 — `--statedir=/var/lib/tailscale` захардкожен**
 `/var/lib/` — tmpfs (RAM), стирается при перезагрузке. После ребута: `Logged out`.
-Фикс: убираем `--statedir`, остаётся `--state /etc/tailscale/tailscaled.state` (persistent overlay).
+Фикс: убираем `--statedir`, остаётся `--state /etc/tailscale/tailscaled.state` (persistent).
 
 **Баг 2 — `TS_DEBUG_FIREWALL_MODE="none"` захардкожен**
 OpenWrt 25.12 не имеет `iptables`, только `nftables`. С `"none"` tailscaled падает через ~10 сек — зелёная точка тухнет.
-Фикс: меняем `"none"` → `"$fw_mode"` (читает из UCI → `nftables`).
-
-UCI после фикса:
-```
-tailscale.settings.fw_mode='nftables'
-tailscale.settings.state_file='/etc/tailscale/tailscaled.state'
-```
-
-#### Шаг 5 — Авторизация Tailscale
-`tailscale up --accept-dns=false --accept-routes --reset` → ссылка → браузер открывается автоматически.
-После авторизации зелёная точка горит и **не тухнет**.
+Фикс: меняем `"none"` → `"$fw_mode"` (читает из UCI = `nftables`).
 
 ---
 
-### Выживание после перезагрузки
+## Формат keys.conf
 
-`/etc/rc.local` на роутере (из шаблона):
-```sh
-#!/bin/sh
-(sleep 15
-tailscale up --accept-dns=false --accept-routes
-sleep 5
-tailscale serve --bg --tcp 80  tcp://localhost:80
-tailscale serve --bg --tcp 22  tcp://localhost:22
-tailscale serve --bg --tcp 443 tcp://localhost:443) &
-exit 0
+Хранится локально, **не в репо**:
+
+```
+108_main=vless://UUID@server:4190?...#Z56-108_hostFin
+108_yt=vless://UUID@server:8853?...#Z56-108_bSPB
+109_main=...
+109_yt=...
 ```
 
 ---
 
-## wr3000h-tailscale-setup.sh
+## После настройки
 
-Старый скрипт — только установка Tailscale на роутере (запускается прямо на роутере).
-
-```sh
-sh <(curl -L https://raw.githubusercontent.com/vasneverov/openwrt-scripts/main/wr3000h-tailscale-setup.sh)
-```
+- LAN: `192.168.5.1`, пароль SSH: `56756789`, WiFi: `@open` / `56756789`
+- Tailscale: зелёная точка, выживает после перезагрузки (~35 сек на ребут)
+- Podkop: 20 сервисов в `main` + `youtube` в отдельной секции `yt`
