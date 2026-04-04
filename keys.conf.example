@@ -1,0 +1,13 @@
+# keys.conf — vless-ключи для роутеров z56-NNN
+# Скопируй этот файл в keys.conf и заполни своими ключами
+# keys.conf добавлен в .gitignore и НЕ попадает в репозиторий
+
+# Формат:
+# NNN_main=vless://...   ← ключ для основного профиля (HostFin, порт 4190)
+# NNN_yt=vless://...     ← ключ для YouTube (bSPB, порт 8853)
+
+110_main=vless://YOUR_UUID@YOUR_SERVER:4190?type=grpc&security=reality&...#Z56-110_hostFin
+110_yt=vless://YOUR_UUID@YOUR_SERVER:8853?type=grpc&security=reality&...#Z56-110_bSPB
+
+111_main=vless://YOUR_UUID@YOUR_SERVER:4190?type=grpc&security=reality&...#Z56-111_hostFin
+111_yt=vless://YOUR_UUID@YOUR_SERVER:8853?type=grpc&security=reality&...#Z56-111_bSPB
