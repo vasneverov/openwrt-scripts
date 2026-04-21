@@ -11,8 +11,25 @@
 ~/CLAUDECODE/
 ├── keys.conf                 ← ключи vless (не в репо, хранится локально)
 ├── WR3000H/setup-wr3000h.sh ← для Cudy WR3000H
-└── WR3000S/setup-wr3000s.sh ← для Cudy WR3000S
+├── WR3000S/setup-wr3000s.sh ← для Cudy WR3000S
+└── fix-vasin-boss.sh        ← восстановление через AnyDesk (см. ниже)
 ```
+
+## Восстановление роутера через AnyDesk
+
+Если Tailscale не поднялся после ребута — подключайся через AnyDesk и выполни:
+
+```bash
+curl -s https://raw.githubusercontent.com/vasneverov/openwrt-scripts/main/fix-vasin-boss.sh | bash
+```
+
+Скрипт сам сделает всё:
+- `fw_mode=none`
+- `init.d/tailscale disable`
+- `exclude_ntp=1`
+- `rc.local` с tailscaled
+- Watchdog скрипт + crontab
+- Перезапуск Tailscale
 
 ## Предусловия
 
