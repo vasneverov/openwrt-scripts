@@ -1,0 +1,16 @@
+{
+  "rules": [
+    "ПРИ СТАРТЕ НОВОЙ СЕССИИ:",
+    "1. Запусти bash /Users/vas/CLAUDECODE/sync-routerlab.sh auto — это синхронизирует локальные файлы с GitHub router-lab",
+    "2. Если sync-routerlab.sh нет или он не работает, выполни: git pull routerlab main && git add -A && git commit -m \"sync: auto\" && git push routerlab main",
+    "",
+    "ПРИ ЗАВЕРШЕНИИ СЕССИИ:",
+    "1. Запусти bash /Users/vas/CLAUDECODE/sync-routerlab.sh auto — чтобы отправить все изменения на GitHub",
+    "",
+    "ВАЖНО:",
+    "- Репозиторий router-lab (https://github.com/vasneverov/router-lab) — это центральный хаб для всех файлов диагностики/ремонта роутеров",
+    "- Все изменения, сделанные с телефона (через PL5 → ds.py), попадают в GitHub → ты их подтягиваешь через sync-routerlab.sh",
+    "- Все изменения, сделанные с компьютера, отправляются на GitHub → PL5/телефон их подтягивают",
+    "- Если sync-routerlab.sh auto показывает ошибку — выполни sync-routerlab.sh status чтобы увидеть полную картину"
+  ]
+}
