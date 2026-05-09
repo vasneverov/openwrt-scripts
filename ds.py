@@ -465,37 +465,46 @@ def main():
             if not user_input:
                 continue
             
-            # Обработка команд
-            if user_input == '/exit':
+            # Обработка команд (английские + русские алиасы)
+            user_lower = user_input.lower().strip()
+            
+            # /exit — выход
+            if user_input == '/exit' or user_lower in ('выйти', 'выход', 'пока', 'до свидания', 'exit'):
                 print(f"\n{C.YLW}Сохраняю изменения...{C.END}")
                 print_cost()
                 git_save()
                 print(f"{C.GRN}До встречи! 👋{C.END}")
                 break
             
-            elif user_input == '/help':
+            # /help — помощь
+            elif user_input == '/help' or user_lower in ('помощь', 'help', 'помоги', 'что ты умеешь', 'команды'):
                 print_help()
                 continue
             
-            elif user_input == '/sync':
+            # /sync — синхронизация с GitHub
+            elif user_input == '/sync' or user_lower in ('синхронизируй', 'синхронизация', 'sync', 'обнови', 'обновить', 'синхронизируй с гитхабом', 'синхронизация с гитхабом', 'запушь', 'пуш', 'push', 'закоммить', 'коммит'):
                 git_sync()
                 continue
             
-            elif user_input == '/clear':
+            # /clear — очистить экран
+            elif user_input == '/clear' or user_lower in ('очисти', 'очистить', 'clear', 'cls'):
                 print(f"{C.CLR}", end='')
                 print_banner()
                 continue
             
-            elif user_input == '/context':
+            # /context — показать контекст
+            elif user_input == '/context' or user_lower in ('контекст', 'context', 'что ты знаешь', 'память'):
                 print(f"{C.DIM}{context[:2000]}{C.END}")
                 print(f"\n{C.DIM}... (контекст сокращён, всего {len(context)} символов){C.END}")
                 continue
             
-            elif user_input == '/cost':
+            # /cost — стоимость сессии
+            elif user_input == '/cost' or user_lower in ('стоимость', 'cost', 'цена', 'сколько стоит', 'деньги', 'потрачено'):
                 print_cost()
                 continue
             
-            elif user_input == '/status':
+            # /status — статус
+            elif user_input == '/status' or user_lower in ('статус', 'status', 'состояние'):
                 result = execute_command(
                     "echo 'HEAD: $(git rev-parse HEAD | head -c 8)' && "
                     "echo '---' && git status --short | head -10"
@@ -503,21 +512,33 @@ def main():
                 print(result)
                 continue
             
-            elif user_input.startswith('/bash '):
-                cmd = user_input[6:]
+            # /bash — выполнить команду
+            elif user_input.startswith('/bash ') or user_lower.startswith('выполни '):
+                if user_input.startswith('/bash '):
+                    cmd = user_input[6:]
+                else:
+                    cmd = user_input[8:]  # "выполни "
                 print(f"{C.YLW}⚡ {cmd}{C.END}")
                 output = execute_command(cmd)
                 print(f"{C.DIM}{output}{C.END}")
                 continue
             
-            elif user_input.startswith('/read '):
-                path = user_input[6:]
+            # /read — прочитать файл
+            elif user_input.startswith('/read ') or user_lower.startswith('прочитай '):
+                if user_input.startswith('/read '):
+                    path = user_input[6:]
+                else:
+                    path = user_input[9:]  # "прочитай "
                 content = read_file(path)
                 print(f"{C.DIM}{content}{C.END}")
                 continue
             
-            elif user_input.startswith('/write '):
-                path = user_input[7:]
+            # /write — записать файл
+            elif user_input.startswith('/write ') or user_lower.startswith('запиши '):
+                if user_input.startswith('/write '):
+                    path = user_input[7:]
+                else:
+                    path = user_input[7:]  # "запиши "
                 print(f"{C.YLW}✏️  Введи содержимое (Ctrl+D для завершения):{C.END}")
                 content_lines = []
                 try:
