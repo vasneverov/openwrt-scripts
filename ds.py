@@ -30,6 +30,18 @@ WORK_DIR = "/root/router-lab"
 HISTORY_FILE = "/root/.ds_history"
 MAX_HISTORY = 100
 
+# Цены DeepSeek V4 Flash (за 1M токенов)
+PRICE_INPUT_PER_1M = 0.07    # $0.07 за 1M input токенов
+PRICE_OUTPUT_PER_1M = 0.27   # $0.27 за 1M output токенов
+
+# Трекер стоимости сессии (как в Cline)
+session_stats = {
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "total_cost": 0.0,
+    "requests": 0
+}
+
 # =============================================================================
 # ЦВЕТА (как в Cline)
 # =============================================================================
@@ -65,6 +77,7 @@ def print_help():
     print(f"  {C.GRN}/exit{C.END}       — выйти (автосохранение в GitHub)")
     print(f"  {C.GRN}/sync{C.END}       — синхронизация с GitHub")
     print(f"  {C.GRN}/status{C.END}     — статус синхронизации")
+    print(f"  {C.GRN}/cost{C.END}       — стоимость сессии")
     print(f"  {C.GRN}/bash <cmd>{C.END} — выполнить bash-команду")
     print(f"  {C.GRN}/read <file>{C.END} — прочитать файл")
     print(f"  {C.GRN}/write <file>{C.END} — записать файл")
@@ -73,6 +86,35 @@ def print_help():
     print()
     print(f"{C.DIM}Или просто задай вопрос — я передам его DeepSeek{C.END}")
     print()
+
+def print_cost():
+    """Показать стоимость сессии как в Cline"""
+    total = session_stats["total_cost"]
+    inp = session_stats["input_tokens"]
+    out = session_stats["output_tokens"]
+    req = session_stats["requests"]
+    
+    print(f"\n{C.BLD}{C.CYN}  ╔══ СТОИМОСТЬ СЕССИИ ══╗{C.END}")
+    print(f"{C.CYN}  ║{C.END}  Запросов:        {req:>5}")
+    print(f"{C.CYN}  ║{C.END}  Input tokens:    {inp:>7}")
+    print(f"{C.CYN}  ║{C.END}  Output tokens:   {out:>7}")
+    if total > 0:
+        print(f"{C.CYN}  ║{C.END}  {C.GRN}Стоимость:      ${total:.4f}{C.END}")
+        print(f"{C.CYN}  ║{C.END}  {C.GRN}              ≈ {total*100:.2f}¢{C.END}")
+    else:
+        print(f"{C.CYN}  ║{C.END}  {C.DIM}Стоимость:      $0.0000{C.END}")
+    print(f"{C.BLD}{C.CYN}  ╚══════════════════════╝{C.END}")
+    print()
+
+def track_usage(usage):
+    """Записать usage в статистику сессии"""
+    inp = usage.get("prompt_tokens", 0)
+    out = usage.get("completion_tokens", 0)
+    session_stats["input_tokens"] += inp
+    session_stats["output_tokens"] += out
+    session_stats["requests"] += 1
+    cost = (inp / 1_000_000 * PRICE_INPUT_PER_1M) + (out / 1_000_000 * PRICE_OUTPUT_PER_1M)
+    session_stats["total_cost"] += cost
 
 # =============================================================================
 # API ВЫЗОВЫ
@@ -108,7 +150,6 @@ def call_deepseek(messages, stream=True):
             # Streaming режим — выводим токены по мере получения
             response = urllib.request.urlopen(req, timeout=180)
             full_content = ""
-            buffer = ""
             
             for chunk_bytes in response:
                 chunk = chunk_bytes.decode('utf-8')
@@ -127,13 +168,19 @@ def call_deepseek(messages, stream=True):
                         pass
             
             print()  # newline after streaming
-            return full_content, {}
+            # В streaming режиме usage не приходит, оцениваем по длине
+            inp_est = len(json.dumps(messages)) // 4  # грубая оценка
+            out_est = len(full_content) // 4
+            usage_est = {"prompt_tokens": inp_est, "completion_tokens": out_est}
+            track_usage(usage_est)
+            return full_content, usage_est
         else:
             # Non-streaming
             with urllib.request.urlopen(req, timeout=180) as response:
                 result = json.loads(response.read())
                 content = result["choices"][0]["message"]["content"]
                 usage = result.get("usage", {})
+                track_usage(usage)
                 return content, usage
     except Exception as e:
         return f"{C.RED}Ошибка API: {e}{C.END}", {}
@@ -256,7 +303,6 @@ def process_deepseek_response(response):
             cmd = line.strip()[6:]
             print(f"\n{C.BLD}{C.YLW}⚡ Выполняю: {cmd}{C.END}")
             output = execute_command(cmd)
-            # Показываем результат компактно
             output_preview = output[:1500]
             if len(output) > 1500:
                 output_preview += f"\n... (ещё {len(output) - 1500} символов)"
@@ -384,6 +430,7 @@ def main():
     # Обработка Ctrl+C
     def signal_handler(sig, frame):
         print(f"\n{C.YLW}Прерывание...{C.END}")
+        print_cost()
         git_save()
         print(f"{C.GRN}До встречи! 👋{C.END}")
         sys.exit(0)
@@ -421,6 +468,7 @@ def main():
             # Обработка команд
             if user_input == '/exit':
                 print(f"\n{C.YLW}Сохраняю изменения...{C.END}")
+                print_cost()
                 git_save()
                 print(f"{C.GRN}До встречи! 👋{C.END}")
                 break
@@ -441,6 +489,10 @@ def main():
             elif user_input == '/context':
                 print(f"{C.DIM}{context[:2000]}{C.END}")
                 print(f"\n{C.DIM}... (контекст сокращён, всего {len(context)} символов){C.END}")
+                continue
+            
+            elif user_input == '/cost':
+                print_cost()
                 continue
             
             elif user_input == '/status':
@@ -501,7 +553,6 @@ def main():
             # Цикл: DeepSeek → команды → результат → DeepSeek анализирует
             max_iterations = 10
             for iteration in range(max_iterations):
-                # Показываем индикатор
                 if iteration > 0:
                     print(f"{C.DIM}⏳ Анализирую результаты...{C.END}")
                 
@@ -523,12 +574,14 @@ def main():
             
         except KeyboardInterrupt:
             print(f"\n{C.YLW}Прерывание...{C.END}")
+            print_cost()
             git_save()
             print(f"{C.GRN}До встречи! 👋{C.END}")
             break
         
         except EOFError:
             print(f"\n{C.YLW}Сохраняю изменения...{C.END}")
+            print_cost()
             git_save()
             print(f"{C.GRN}До встречи! 👋{C.END}")
             break
