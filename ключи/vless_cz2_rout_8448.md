@@ -66,6 +66,13 @@ UUID: `f7f63e92-1205-4263-8890-e6afcf1b7378`
 vless://f7f63e92-1205-4263-8890-e6afcf1b7378@5.35.84.151:8448?type=grpc&security=reality&mode=gun&serviceName=&pbk=FyCxYT4Ku_RyR7r2dZYofYxcAOm5xJtgP-T_xjgVnCQ&sid=dcaa&sni=www.apple.com&fp=chrome&spx=%2F#m78-05-artpika-sosed-custom
 ```
 
+## M78-11
+
+UUID: `ea7dea75-dc77-4f12-88e9-fe77dfa7aac1`
+```
+vless://ea7dea75-dc77-4f12-88e9-fe77dfa7aac1@5.35.84.151:8448?type=grpc&security=reality&mode=gun&serviceName=&pbk=FyCxYT4Ku_RyR7r2dZYofYxcAOm5xJtgP-T_xjgVnCQ&sid=dcaa&sni=www.apple.com&fp=chrome&spx=%2F#M78-11_CZ2_rout_8448
+```
+
 ## H-01
 
 UUID: `9df25790-8c10-4c1a-a508-c1bc6ed91e69`
