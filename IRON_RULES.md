@@ -123,14 +123,22 @@
 - YouTube работает через community_list 'youtube' (3-й в списке после telegram, meta)
 - 21 список в community_lists — все через один профиль
 
-## 25. Ключи для нового роутера — брать с работающего
+## 25. НИКОГДА не перезагружать firewall (fw4) на работающем Tailscale
+- `/etc/init.d/firewall reload` на OpenWrt 25.12+ (fw4) **перезаписывает nftables**
+- Это сбрасывает все правила, включая те, что Tailscale добавил для своей работы
+- **Результат:** Tailscale теряет связь, роутер пропадает из сети
+- **Решение:** Только сохранять конфиг (`uci commit firewall`), НЕ reload
+- tailscale0 добавится в зону LAN при следующей перезагрузке роутера
+- **Урок:** `memory-lessons/lesson_tr-boss-00_wifi_wan_fix_2026-05-08.md`
+
+## 26. Ключи для нового роутера — брать с работающего
 - При настройке нового роутера брать ключи с уже работающего роутера той же конфигурации
 - Не изобретать новые ключи, не менять порты/pbk/sid/sni
 - Менять только UUID (если нужен уникальный для каждого роутера)
 - Или не менять ничего — если ключи общие
 - Сначала поставить ключи как есть, убедиться что работает, потом думать об оптимизации
 
-## 26. После каждого важного действия — автоматический git push в router-lab
+## 27. После каждого важного действия — автоматический git push в router-lab
 - После прошивки роутера → commit + push
 - После диагностики → commit + push
 - После ремонта → commit + push
@@ -141,10 +149,39 @@
 - Если push заблокирован — разобраться и исправить, не оставлять незапушенным
 - **Цель:** компьютер ↔ GitHub (router-lab) ↔ телефон (Termius + DeepSeek) — всегда синхронизировано
 
-## 25. НИКОГДА не перезагружать firewall (fw4) на работающем Tailscale
-- `/etc/init.d/firewall reload` на OpenWrt 25.12+ (fw4) **перезаписывает nftables**
-- Это сбрасывает все правила, включая те, что Tailscale добавил для своей работы
-- **Результат:** Tailscale теряет связь, роутер пропадает из сети
-- **Решение:** Только сохранять конфиг (`uci commit firewall`), НЕ reload
-- tailscale0 добавится в зону LAN при следующей перезагрузке роутера
-- **Урок:** `memory-lessons/lesson_tr-boss-00_wifi_wan_fix_2026-05-08.md`
+## 28. Перед диагностикой роутера — сначала читать IRON_RULES.md
+- **Особенно шаг 6** (tailscale0 в LAN зону через device, без reload)
+- **Особенно шаг 25** (НИКОГДА не reload firewall)
+- Проверить, что в fix-tailscale-openwrt.sh написано про tailscale0
+
+## 29. 21 community_list — ЭТАЛОННЫЙ СПИСОК (порядок ВАЖЕН)
+- **Порядок имеет значение:** telegram, meta, youtube — первые три
+- **Полный список (21):**
+  1. telegram
+  2. meta
+  3. youtube
+  4. anime
+  5. cloudflare
+  6. cloudfront
+  7. digitalocean
+  8. discord
+  9. google_ai
+  10. google_play
+  11. hdrezka
+  12. hetzner
+  13. hodca
+  14. news
+  15. ovh
+  16. porn
+  17. roblox
+  18. tiktok
+  19. twitter
+  20. geoblock
+  21. block
+- **Проверка:** `uci get podkop.main.community_lists | wc -w` должно быть 21
+- **Доступные сервисы в podkop v0.7.14:** russia_inside, russia_outside, ukraine_inside, geoblock, block, porn, news, anime, youtube, hdrezka, tiktok, google_ai, google_play, hodca, discord, meta, twitter, cloudflare, cloudfront, digitalocean, hetzner, ovh, telegram, roblox
+- **НЕ добавлять:** google_meet, whatsapp — их нет в podkop v0.7.14
+- **WhatsApp/Instagram/Facebook** входят в `meta` — отдельные списки для них не нужны
+- **Причина:** podkop v0.7.14 валидирует списки через `$COMMUNITY_SERVICES` в `/usr/lib/podkop/constants.sh`. Если списка там нет — podkop падает с `fatal: Invalid service`
+- **При настройке нового роутера:** скопировать этот список как есть, без изменений
+- **Урок:** `memory-lessons/lesson_z56-104_repair_2026-05-09.md`
