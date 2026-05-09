@@ -161,34 +161,19 @@
 - **Особенно шаг 25** (НИКОГДА не reload firewall)
 - Проверить, что в fix-tailscale-openwrt.sh написано про tailscale0
 
-## 29. 21 community_list — ЭТАЛОННЫЙ СПИСОК (порядок ВАЖЕН)
+## 29. Community lists — ЗАВИСИТ ОТ ВЕРСИИ PODKOP (порядок ВАЖЕН)
 - **Порядок имеет значение:** telegram, meta, youtube — первые три
-- **Полный список (21):**
-  1. telegram
-  2. meta
-  3. youtube
-  4. anime
-  5. cloudflare
-  6. cloudfront
-  7. digitalocean
-  8. discord
-  9. google_ai
-  10. google_play
-  11. hdrezka
-  12. hetzner
-  13. hodca
-  14. news
-  15. ovh
-  16. porn
-  17. roblox
-  18. tiktok
-  19. twitter
-  20. geoblock
-  21. block
-- **Проверка:** `uci get podkop.main.community_lists | wc -w` должно быть 21
+- **Для podkop v0.7.14 — 21 список (с roblox):**
+  1. telegram, 2. meta, 3. youtube, 4. anime, 5. cloudflare, 6. cloudfront, 7. digitalocean, 8. discord, 9. google_ai, 10. google_play, 11. hdrezka, 12. hetzner, 13. hodca, 14. news, 15. ovh, 16. porn, 17. roblox, 18. tiktok, 19. twitter, 20. geoblock, 21. block
+- **Для podkop v0.7.10 — 20 списков (БЕЗ roblox):**
+  1. telegram, 2. meta, 3. youtube, 4. anime, 5. cloudflare, 6. cloudfront, 7. digitalocean, 8. discord, 9. google_ai, 10. google_play, 11. hdrezka, 12. hetzner, 13. hodca, 14. news, 15. ovh, 16. porn, 17. tiktok, 18. twitter, 19. geoblock, 20. block
+- **Проверка:** `uci get podkop.main.community_lists | wc -w` — 21 для v0.7.14, 20 для v0.7.10
+- **Как узнать версию:** `opkg list-installed | grep podkop`
 - **Доступные сервисы в podkop v0.7.14:** russia_inside, russia_outside, ukraine_inside, geoblock, block, porn, news, anime, youtube, hdrezka, tiktok, google_ai, google_play, hodca, discord, meta, twitter, cloudflare, cloudfront, digitalocean, hetzner, ovh, telegram, roblox
+- **Доступные сервисы в podkop v0.7.10:** те же, но БЕЗ roblox
 - **НЕ добавлять:** google_meet, whatsapp — их нет в podkop v0.7.14
 - **WhatsApp/Instagram/Facebook** входят в `meta` — отдельные списки для них не нужны
-- **Причина:** podkop v0.7.14 валидирует списки через `$COMMUNITY_SERVICES` в `/usr/lib/podkop/constants.sh`. Если списка там нет — podkop падает с `fatal: Invalid service`
-- **При настройке нового роутера:** скопировать этот список как есть, без изменений
+- **Причина:** podkop валидирует списки через `$COMMUNITY_SERVICES` в `/usr/lib/podkop/constants.sh`. Если списка там нет — podkop падает с `fatal: Invalid service`
+- **При настройке нового роутера:** сначала проверить версию podkop, потом ставить списки
 - **Урок:** `memory-lessons/lesson_z56-104_repair_2026-05-09.md`
+
