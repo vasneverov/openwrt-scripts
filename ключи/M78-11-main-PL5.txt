@@ -1,0 +1,1 @@
+vless://e58ff36a-df41-413d-be24-d3785905454c@159.194.198.172:5323/?type=tcp&encryption=none&security=reality&pbk=1F1LgOisI_qPJdjHRoDxt583-ktmBypcC7Fu5igWNyo&fp=firefox&sni=vk.com&sid=b5023350&spx=%2F#M78-11_main

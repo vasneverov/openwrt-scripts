@@ -1,0 +1,37 @@
+# System
+.DS_Store
+._*
+Thumbs.db
+
+# Media
+*.mp4
+*.MOV
+*.mp3
+*.dmg
+*.ass
+*.srt
+*.deb
+
+# Cache/temp
+__pycache__/
+*.pyc
+node_modules/
+.graphify_*
+.cache/
+
+# Other projects
+REMOTION/
+transcriptions/
+vas.obsidian/
+cp/
+ls/
+music/
+Скринс/
+castdev_analysis.docx
+graphify-out/
+router-lab-gitignore
+mita_3.32.0_linux_amd64.deb
+sing-box-tiny_1.12.22-r1_aarch64_cortex-a53.ipk
+transcript.txt
+copy_C7C86959-A7F9-4300-B12B-E0B7397C0DFA.MOV
+IMG_9075.MOV

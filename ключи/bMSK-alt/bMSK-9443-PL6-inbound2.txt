@@ -1,0 +1,6 @@
+# bMSK Port 9443 → PL6:5228 (inbound 2)
+# Created: 2026-05-05
+# UUID: 92d5f577-2688-4d07-bafd-09b91560aa30
+# Status: ● READY
+
+vless://92d5f577-2688-4d07-bafd-09b91560aa30@159.194.198.172:9443?type=grpc&security=reality&mode=gun&serviceName=&pbk=B13kRiGPLxYxU262OY53_DeuWJ3zn10wg1A_2O--qmQ&sid=efab5678&sni=www.apple.com&fp=chrome&spx=%2F#PL6_9443_main

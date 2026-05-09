@@ -1,0 +1,17 @@
+[Unit]
+Description=Writer Bot
+After=network.target
+
+[Service]
+Type=simple
+User=writer
+WorkingDirectory=/home/writer/bot
+ExecStart=/home/writer/bot/venv/bin/python bot.py
+Restart=always
+RestartSec=10
+EnvironmentFile=/home/writer/bot/.env
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

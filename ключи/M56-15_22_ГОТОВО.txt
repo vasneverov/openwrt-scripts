@@ -1,0 +1,44 @@
+M56-15..22 - КЛЮЧИ ГОТОВЫ (добавить в панель вручную)
+
+=== M56-15 ===
+Main UUID: c80acb93-1c61-4df5-964a-ca0d23a5d018
+YT UUID: afed0637-bb53-48a1-980c-5f2ce77ea54d
+
+=== M56-16 ===
+Main UUID: 0309b41c-a817-4c7b-ab92-2f3f93c5824b
+YT UUID: 6d10f242-5421-46c1-9ea8-62debc7efdb4
+
+=== M56-17 ===
+Main UUID: c2879279-eec8-45d5-98b0-52cce0249d4a
+YT UUID: 76b47766-3dfb-4930-99fe-498ac6a99305
+
+=== M56-18 ===
+Main UUID: e510ad99-aa8b-4e21-b94f-d1ce3ef88831
+YT UUID: 9358dd7e-d754-439b-8694-20571311159c
+
+=== M56-19 ===
+Main UUID: 8b47ab84-c6f3-46c1-90ac-1d5a51bbd62a
+YT UUID: 99da7b58-52e7-4ae0-a5fa-38303b9bd20c
+
+=== M56-20 ===
+Main UUID: 8d77d5cf-312e-40f7-979a-7942aff87537
+YT UUID: 32035f0a-726d-4e47-9abc-a7d1f0906286
+
+=== M56-21 ===
+Main UUID: 41f01d9d-f85a-4ed1-acc9-5b528e31aca1
+YT UUID: 86b3534f-d78d-423e-8949-558778775e67
+
+=== M56-22 ===
+Main UUID: 0bd5ca6d-ea93-4ab5-8533-b4475069cf60
+YT UUID: 22d1c261-5b35-4d5a-a40d-003a5e4ddc62
+
+=== НАСТРОЙКИ ===
+Fin3 (Main): https://144.31.66.115:5050/5050/
+- Inbound: WL_rout_fin3_4191 (ID 2)
+- pbk: XJC_sc4MP6pFj2FNNGUu93SEoI6sKww2sCsh5prWWRw
+- sid: 932e706c
+
+bSPB (YT): https://5.35.84.151:5050/5050/
+- Inbound: bSPB_direct_8853 (ID 4)
+- pbk: me9yoc9is4ZouFPS7e_TBjuBvyc8HZz6PCEogODIjSM
+- sid: ddcb53b3

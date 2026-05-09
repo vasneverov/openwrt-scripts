@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Router Monitor — Mockup</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  :root {
+    --bg: #17212b;
+    --bg2: #232e3c;
+    --bg3: #2b5278;
+    --text: #e8e8e8;
+    --text2: #8a9bae;
+    --green: #4cd964;
+    --gray: #8a9bae;
+    --accent: #5288c1;
+    --red: #ff453a;
+    --border: #2b3a4a;
+    --card: #1e2c38;
+  }
+
+  body {
+    font-family: -apple-system, 'Helvetica Neue', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+  }
+
+  /* Телефонная рамка */
+  .phone-wrap {
+    width: 390px;
+    min-height: 844px;
+    background: var(--bg);
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 0 60px rgba(0,0,0,0.6);
+  }
+
+  /* Header */
+  .header {
+    background: var(--bg2);
+    padding: 14px 16px 12px;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+
+  .header-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+
+  .header-title {
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .header-stats {
+    font-size: 12px;
+    color: var(--text2);
+  }
+
+  .refresh-btn {
+    width: 32px; height: 32px;
+    background: var(--bg3);
+    border: none;
+    border-radius: 8px;
+    color: var(--accent);
+    font-size: 16px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  /* Search */
+  .search-wrap {
+    position: relative;
+    margin-bottom: 10px;
+  }
+
+  .search-icon {
+    position: absolute;
+    left: 10px; top: 50%;
+    transform: translateY(-50%);
+    color: var(--text2);
+    font-size: 14px;
+  }
+
+  .search-input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 9px 12px 9px 32px;
+    color: var(--text);
+    font-size: 15px;
+    outline: none;
+  }
+
+  .search-input::placeholder { color: var(--text2); }
+  .search-input:focus { border-color: var(--accent); }
+
+  /* Filter tabs */
+  .tabs {
+    display: flex;
+    gap: 6px;
+  }
+
+  .tab {
+    flex: 1;
+    padding: 7px 4px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text2);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.15s;
+  }
+
+  .tab.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+  }
+
+  .tab .count {
+    font-size: 11px;
+    opacity: 0.8;
+  }
+
+  /* Account tabs */
+  .account-tabs {
+    display: flex;
+    gap: 6px;
+    padding: 8px 16px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .account-tabs::-webkit-scrollbar { display: none; }
+
+  .acc-tab {
+    white-space: nowrap;
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    color: var(--text2);
+    background: transparent;
+  }
+
+  .acc-tab.active {
+    background: var(--bg3);
+    border-color: var(--accent);
+    color: var(--text);
+  }
+
+  /* Router list */
+  .list {
+    padding: 8px 0;
+  }
+
+  .section-header {
+    padding: 6px 16px 4px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text2);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .router-card {
+    display: flex;
+    align-items: center;
+    padding: 10px 16px;
+    gap: 12px;
+    cursor: pointer;
+    transition: background 0.1s;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .router-card:active { background: var(--bg2); }
+  .router-card:last-child { border-bottom: none; }
+
+  /* Status dot */
+  .dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    position: relative;
+  }
+
+  .dot.online {
+    background: var(--green);
+    box-shadow: 0 0 6px rgba(76, 217, 100, 0.5);
+  }
+
+  .dot.online::after {
+    content: '';
+    position: absolute;
+    inset: -3px;
+    border-radius: 50%;
+    border: 1.5px solid rgba(76, 217, 100, 0.3);
+  }
+
+  .dot.offline { background: var(--gray); }
+
+  /* Router info */
+  .router-info { flex: 1; min-width: 0; }
+
+  .router-name {
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .router-sub {
+    font-size: 12px;
+    color: var(--text2);
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Right side */
+  .router-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+
+  .acc-badge {
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 10px;
+    font-weight: 600;
+  }
+
+  .acc1 { background: rgba(82,136,193,0.2); color: #5288c1; }
+  .acc2 { background: rgba(76,217,100,0.15); color: #4cd964; }
+  .acc3 { background: rgba(255,214,10,0.15); color: #ffd60a; }
+
+  .last-seen {
+    font-size: 11px;
+    color: var(--text2);
+  }
+
+  /* ============ BOTTOM SHEET (детали роутера) ============ */
+  .sheet-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 100;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+  }
+
+  .sheet-overlay.visible {
+    opacity: 1;
+    pointer-events: all;
+  }
+
+  .bottom-sheet {
+    position: fixed;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%) translateY(100%);
+    width: 390px;
+    background: var(--bg2);
+    border-radius: 18px 18px 0 0;
+    z-index: 101;
+    transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+    padding-bottom: 34px;
+  }
+
+  .bottom-sheet.visible {
+    transform: translateX(-50%) translateY(0);
+  }
+
+  .sheet-handle {
+    width: 36px; height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    margin: 10px auto 16px;
+  }
+
+  .sheet-header {
+    padding: 0 20px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .sheet-dot {
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .sheet-dot.online { background: var(--green); box-shadow: 0 0 8px rgba(76,217,100,0.5); }
+  .sheet-dot.offline { background: var(--gray); }
+
+  .sheet-name {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .sheet-status {
+    font-size: 13px;
+    color: var(--text2);
+    margin-top: 1px;
+  }
+
+  .sheet-status.online { color: var(--green); }
+
+  .sheet-rows {
+    padding: 16px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .sheet-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .sheet-label {
+    font-size: 13px;
+    color: var(--text2);
+  }
+
+  .sheet-value {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .ip-value {
+    font-family: 'SF Mono', 'Courier New', monospace;
+    font-size: 13px;
+    background: var(--bg);
+    padding: 3px 8px;
+    border-radius: 6px;
+    color: var(--accent);
+    cursor: pointer;
+  }
+
+  .sheet-btn {
+    margin: 4px 20px 0;
+    padding: 14px;
+    background: var(--accent);
+    border: none;
+    border-radius: 12px;
+    color: white;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    width: calc(100% - 40px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: opacity 0.1s;
+  }
+
+  .sheet-btn:active { opacity: 0.8; }
+
+  /* Empty state */
+  .empty {
+    padding: 60px 20px;
+    text-align: center;
+    color: var(--text2);
+  }
+  .empty-icon { font-size: 40px; margin-bottom: 12px; }
+  .empty-text { font-size: 15px; }
+</style>
+</head>
+<body>
+
+<div class="phone-wrap" id="app">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="header-top">
+      <div>
+        <div class="header-title">📡 Router Monitor</div>
+        <div class="header-stats" id="stats-text">Загрузка...</div>
+      </div>
+      <button class="refresh-btn" onclick="refreshData()" title="Обновить">↻</button>
+    </div>
+
+    <div class="search-wrap">
+      <span class="search-icon">🔍</span>
+      <input class="search-input" id="search"
+             placeholder="z56-93, m56-11, VasyaOnline..."
+             oninput="filterRouters()"
+             autocomplete="off" autocorrect="off" spellcheck="false">
+    </div>
+
+    <div class="tabs">
+      <div class="tab active" id="tab-all" onclick="setFilter('all')">
+        Все <span class="count" id="cnt-all"></span>
+      </div>
+      <div class="tab" id="tab-online" onclick="setFilter('online')">
+        🟢 Онлайн <span class="count" id="cnt-online"></span>
+      </div>
+      <div class="tab" id="tab-offline" onclick="setFilter('offline')">
+        ⚫ Офлайн <span class="count" id="cnt-offline"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ACCOUNT TABS -->
+  <div class="account-tabs">
+    <div class="acc-tab active" onclick="setAccount('all')">Все учётки</div>
+    <div class="acc-tab" onclick="setAccount(1)">Учётка 1</div>
+    <div class="acc-tab" onclick="setAccount(2)">Учётка 2</div>
+    <div class="acc-tab" onclick="setAccount(3)">Учётка 3</div>
+  </div>
+
+  <!-- ROUTER LIST -->
+  <div class="list" id="router-list"></div>
+
+</div>
+
+<!-- OVERLAY -->
+<div class="sheet-overlay" id="overlay" onclick="closeSheet()"></div>
+
+<!-- BOTTOM SHEET -->
+<div class="bottom-sheet" id="sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-header">
+    <div>
+      <div class="sheet-dot online" id="sheet-dot"></div>
+    </div>
+    <div>
+      <div class="sheet-name" id="sheet-name">—</div>
+      <div class="sheet-status online" id="sheet-status">—</div>
+    </div>
+  </div>
+  <div class="sheet-rows">
+    <div class="sheet-row">
+      <span class="sheet-label">Tailscale IP</span>
+      <span class="ip-value" id="sheet-ip" onclick="copyIP()">—</span>
+    </div>
+    <div class="sheet-row">
+      <span class="sheet-label">Учётка</span>
+      <span class="sheet-value" id="sheet-acc">—</span>
+    </div>
+    <div class="sheet-row">
+      <span class="sheet-label">Последний раз онлайн</span>
+      <span class="sheet-value" id="sheet-last">—</span>
+    </div>
+    <div class="sheet-row">
+      <span class="sheet-label">Добавлен</span>
+      <span class="sheet-value" id="sheet-created">—</span>
+    </div>
+  </div>
+  <button class="sheet-btn" id="sheet-admin-btn" onclick="openAdmin()">
+    🌐 Открыть админку
+  </button>
+</div>
+
+<script>
+// ===== ДЕМО-ДАННЫЕ (в реальном боте — запрос к API) =====
+const DEMO_DEVICES = [
+  { name:"z56-93",      ip:"100.79.17.119",   online:true,  acc:3, last:"07 апр 08:55", created:"2026-03-28" },
+  { name:"z56-47",      ip:"100.99.249.51",   online:true,  acc:3, last:"07 апр 08:55", created:"2026-03-10" },
+  { name:"z56-101",     ip:"100.108.28.93",   online:true,  acc:3, last:"07 апр 08:55", created:"2026-03-28" },
+  { name:"z56-108",     ip:"100.115.228.11",  online:false, acc:3, last:"03 апр 14:22", created:"2026-03-29" },
+  { name:"m56-09",      ip:"100.116.21.97",   online:false, acc:3, last:"07 апр 11:23", created:"2026-04-01" },
+  { name:"m56-10",      ip:"100.100.179.100", online:false, acc:3, last:"07 апр 11:40", created:"2026-04-01" },
+  { name:"m56-11",      ip:"100.80.49.11",    online:false, acc:3, last:"07 апр 11:50", created:"2026-04-07" },
+  { name:"VasyaOnline_25", ip:"100.91.218.113", online:true, acc:1, last:"07 апр 08:55", created:"2025-06-25" },
+  { name:"VasyaOnline_41", ip:"100.124.5.121",  online:true, acc:1, last:"07 апр 08:55", created:"2025-09-12" },
+  { name:"VasyaOnline_60", ip:"100.111.153.100",online:true, acc:1, last:"07 апр 08:55", created:"2025-11-03" },
+  { name:"VasyaOnline_14", ip:"100.66.156.31",  online:false,acc:1, last:"07 апр 06:12", created:"2025-05-18" },
+  { name:"TR30_01",     ip:"100.112.246.75",  online:true,  acc:1, last:"07 апр 08:55", created:"2025-04-10" },
+  { name:"S78-22",      ip:"100.80.153.49",   online:true,  acc:2, last:"07 апр 08:55", created:"2026-01-15" },
+  { name:"S78-40",      ip:"100.88.134.104",  online:true,  acc:2, last:"07 апр 08:55", created:"2026-02-20" },
+  { name:"M78-08",      ip:"100.116.179.82",  online:true,  acc:2, last:"07 апр 08:55", created:"2025-12-10" },
+  { name:"M78-05",      ip:"100.75.8.100",    online:false, acc:2, last:"07 апр 05:30", created:"2025-11-28" },
+  { name:"TR30_09",     ip:"100.70.216.65",   online:true,  acc:2, last:"07 апр 08:55", created:"2025-10-05" },
+  { name:"WBR-03",      ip:"100.105.51.17",   online:true,  acc:2, last:"07 апр 08:55", created:"2026-03-01" },
+];
+
+let currentFilter = 'all';
+let currentAccount = 'all';
+let currentSearch = '';
+let selectedDevice = null;
+
+function formatDate(str) {
+  // str like "2026-03-28"
+  return str;
+}
+
+function getFiltered() {
+  return DEMO_DEVICES.filter(d => {
+    const matchFilter = currentFilter === 'all' ||
+      (currentFilter === 'online' && d.online) ||
+      (currentFilter === 'offline' && !d.online);
+    const matchAcc = currentAccount === 'all' || d.acc === currentAccount;
+    const matchSearch = d.name.toLowerCase().includes(currentSearch.toLowerCase()) ||
+      d.ip.includes(currentSearch);
+    return matchFilter && matchAcc && matchSearch;
+  });
+}
+
+function render() {
+  const filtered = getFiltered();
+  const list = document.getElementById('router-list');
+
+  // Update counts
+  const all = DEMO_DEVICES.filter(d => currentAccount === 'all' || d.acc === currentAccount);
+  const online = all.filter(d => d.online);
+  const offline = all.filter(d => !d.online);
+  document.getElementById('cnt-all').textContent = all.length;
+  document.getElementById('cnt-online').textContent = online.length;
+  document.getElementById('cnt-offline').textContent = offline.length;
+  document.getElementById('stats-text').textContent =
+    `283 всего · 🟢 166 онлайн · ⚫ 117 офлайн`;
+
+  if (filtered.length === 0) {
+    list.innerHTML = `<div class="empty"><div class="empty-icon">🔍</div><div class="empty-text">Ничего не найдено</div></div>`;
+    return;
+  }
+
+  // Group: online first, then offline
+  const onlineDevs = filtered.filter(d => d.online);
+  const offlineDevs = filtered.filter(d => !d.online);
+  let html = '';
+
+  if (onlineDevs.length && currentFilter !== 'offline') {
+    if (currentFilter === 'all') html += `<div class="section-header">🟢 Онлайн · ${onlineDevs.length}</div>`;
+    html += onlineDevs.map(d => deviceCard(d)).join('');
+  }
+
+  if (offlineDevs.length && currentFilter !== 'online') {
+    if (currentFilter === 'all') html += `<div class="section-header">⚫ Офлайн · ${offlineDevs.length}</div>`;
+    html += offlineDevs.map(d => deviceCard(d)).join('');
+  }
+
+  list.innerHTML = html;
+}
+
+function deviceCard(d) {
+  const accLabel = `Учётка ${d.acc}`;
+  const accClass = `acc${d.acc}`;
+  return `
+  <div class="router-card" onclick='openSheet(${JSON.stringify(d)})'>
+    <div class="dot ${d.online ? 'online' : 'offline'}"></div>
+    <div class="router-info">
+      <div class="router-name">${d.name}</div>
+      <div class="router-sub">${d.ip}</div>
+    </div>
+    <div class="router-right">
+      <span class="acc-badge ${accClass}">${accLabel}</span>
+      <span class="last-seen">${d.last.split(' ').slice(1).join(' ')}</span>
+    </div>
+  </div>`;
+}
+
+function setFilter(f) {
+  currentFilter = f;
+  ['all','online','offline'].forEach(t => {
+    document.getElementById(`tab-${t}`).classList.toggle('active', t === f);
+  });
+  render();
+}
+
+function setAccount(a) {
+  currentAccount = a;
+  document.querySelectorAll('.acc-tab').forEach((el, i) => {
+    el.classList.toggle('active', i === (a === 'all' ? 0 : a));
+  });
+  render();
+}
+
+function filterRouters() {
+  currentSearch = document.getElementById('search').value;
+  render();
+}
+
+function refreshData() {
+  const btn = document.querySelector('.refresh-btn');
+  btn.style.transform = 'rotate(360deg)';
+  btn.style.transition = 'transform 0.5s';
+  setTimeout(() => { btn.style.transform = ''; btn.style.transition = ''; }, 500);
+  // В реальном боте: fetch('/api/devices').then(...)
+  render();
+}
+
+function openSheet(d) {
+  selectedDevice = d;
+  document.getElementById('sheet-dot').className = `sheet-dot ${d.online ? 'online' : 'offline'}`;
+  document.getElementById('sheet-name').textContent = d.name;
+  document.getElementById('sheet-status').textContent = d.online ? '🟢 Онлайн' : '⚫ Офлайн';
+  document.getElementById('sheet-status').className = `sheet-status ${d.online ? 'online' : 'offline'}`;
+  document.getElementById('sheet-ip').textContent = d.ip;
+  document.getElementById('sheet-acc').textContent = `Учётка ${d.acc}`;
+  document.getElementById('sheet-last').textContent = d.last;
+  document.getElementById('sheet-created').textContent = d.created;
+
+  const btn = document.getElementById('sheet-admin-btn');
+  if (d.online) {
+    btn.style.opacity = '1';
+    btn.disabled = false;
+    btn.textContent = '🌐 Открыть админку';
+  } else {
+    btn.style.opacity = '0.4';
+    btn.disabled = true;
+    btn.textContent = '⚫ Роутер офлайн';
+  }
+
+  document.getElementById('overlay').classList.add('visible');
+  document.getElementById('sheet').classList.add('visible');
+}
+
+function closeSheet() {
+  document.getElementById('overlay').classList.remove('visible');
+  document.getElementById('sheet').classList.remove('visible');
+}
+
+function openAdmin() {
+  if (selectedDevice && selectedDevice.online) {
+    // В Telegram Mini App: window.Telegram.WebApp.openLink(...)
+    window.open(`http://${selectedDevice.ip}`, '_blank');
+  }
+}
+
+function copyIP() {
+  if (selectedDevice) {
+    navigator.clipboard.writeText(selectedDevice.ip).catch(() => {});
+    const el = document.getElementById('sheet-ip');
+    el.style.background = 'rgba(76,217,100,0.2)';
+    setTimeout(() => el.style.background = '', 800);
+  }
+}
+
+// Инициализация
+render();
+</script>
+</body>
+</html>

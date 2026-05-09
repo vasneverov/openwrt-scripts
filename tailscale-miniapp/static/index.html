@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Router Monitor</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  :root {
+    --bg: #17212b;
+    --bg2: #232e3c;
+    --bg3: #2b5278;
+    --text: #e8e8e8;
+    --text2: #8a9bae;
+    --green: #4cd964;
+    --gray: #556b7d;
+    --accent: #5288c1;
+    --border: #2b3a4a;
+  }
+
+  html, body { height: 100%; overflow: hidden; }
+
+  body {
+    font-family: -apple-system, 'Helvetica Neue', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+  }
+
+  /* ===== HEADER ===== */
+  .header {
+    background: var(--bg2);
+    padding: 12px 16px 10px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .header-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+
+  .header-title { font-size: 17px; font-weight: 600; }
+
+  .header-stats { font-size: 12px; color: var(--text2); margin-top: 1px; }
+
+  .refresh-btn {
+    width: 34px; height: 34px;
+    background: var(--bg3);
+    border: none; border-radius: 50%;
+    color: var(--accent);
+    cursor: pointer; display: flex;
+    align-items: center; justify-content: center;
+    transition: background 0.15s;
+  }
+
+  .refresh-btn:active { background: var(--accent); }
+  .refresh-btn svg { width: 18px; height: 18px; }
+  .refresh-btn.spinning svg { animation: spin 0.6s linear; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .search-wrap { position: relative; margin-bottom: 9px; }
+
+  .search-icon {
+    position: absolute; left: 12px; top: 50%;
+    transform: translateY(-50%);
+    color: var(--text2); font-size: 16px; pointer-events: none;
+  }
+
+  .search-input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 36px 14px 36px;
+    color: var(--text); font-size: 18px; outline: none;
+  }
+
+  .search-input::placeholder { color: var(--text2); }
+  .search-input:focus { border-color: var(--accent); }
+
+  .clear-btn {
+    position: absolute; right: 10px; top: 50%;
+    transform: translateY(-50%);
+    background: none; border: none;
+    color: var(--text2); font-size: 16px;
+    cursor: pointer; display: none;
+    line-height: 1; padding: 4px;
+  }
+
+  .tabs {
+    display: flex; gap: 6px;
+  }
+
+  .tab {
+    flex: 1; padding: 6px 4px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text2); font-size: 12px; font-weight: 500;
+    cursor: pointer; text-align: center;
+    transition: all 0.15s;
+  }
+
+  .tab.active { background: var(--accent); border-color: var(--accent); color: white; }
+
+  /* ===== ACCOUNT TABS ===== */
+  .account-bar {
+    display: flex; gap: 6px;
+    padding: 8px 16px;
+    overflow-x: auto; scrollbar-width: none;
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .account-bar::-webkit-scrollbar { display: none; }
+
+  .acc-tab {
+    white-space: nowrap;
+    padding: 6px 16px;
+    border-radius: 22px;
+    font-size: 12px; font-weight: 500;
+    cursor: pointer;
+    border: 1.5px solid var(--border);
+    color: var(--text2); background: rgba(255,255,255,0.04);
+    transition: all 0.18s;
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+  }
+
+  .acc-tab.active {
+    background: rgba(82,136,193,0.25);
+    border-color: var(--accent);
+    color: #fff;
+  }
+
+  .acc-cnt { font-size: 10px; font-weight: 400; opacity: 0.6; line-height: 1; }
+  .acc-tab.active .acc-cnt { opacity: 0.75; }
+  .acc-cnt.over { color: #ff6b6b !important; font-weight: 700; opacity: 1; }
+  .acc-tab.active .acc-cnt.over { color: #ff9f9f !important; }
+
+  /* ===== LIST ===== */
+  .list-wrap {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .section-label {
+    padding: 8px 16px 4px;
+    font-size: 11px; font-weight: 600;
+    color: var(--text2);
+    text-transform: uppercase; letter-spacing: 0.5px;
+    position: sticky; top: 0;
+    background: var(--bg); z-index: 1;
+  }
+
+  .router-row {
+    display: flex; align-items: center;
+    padding: 10px 16px; gap: 12px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.1s;
+    active-state: var(--bg2);
+  }
+
+  .router-row:active { background: var(--bg2); }
+
+  .dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .dot.online {
+    background: var(--green);
+    box-shadow: 0 0 5px rgba(76,217,100,0.6);
+  }
+
+  .dot.offline { background: var(--gray); }
+
+  .router-info { flex: 1; min-width: 0; }
+
+  .router-name {
+    font-size: 15px; font-weight: 500;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+
+  .router-sub {
+    font-size: 12px; color: var(--text2); margin-top: 1px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+
+  .router-right {
+    display: flex; flex-direction: column;
+    align-items: flex-end; gap: 3px; flex-shrink: 0;
+  }
+
+  .badge {
+    font-size: 10px; padding: 2px 7px;
+    border-radius: 10px; font-weight: 600;
+  }
+  .b1 { background: rgba(82,136,193,0.2); color: #5288c1; }
+  .b2 { background: rgba(76,217,100,0.15); color: #4cd964; }
+  .b3 { background: rgba(255,214,10,0.15); color: #ffd60a; }
+  .b4 { background: rgba(255,107,107,0.15); color: #ff6b6b; }
+
+  .last-time { font-size: 11px; color: var(--text2); }
+
+  /* ===== EMPTY / LOADING ===== */
+  .center-msg {
+    padding: 80px 20px;
+    text-align: center; color: var(--text2);
+  }
+
+  .center-msg .icon { font-size: 36px; margin-bottom: 12px; }
+  .center-msg .txt { font-size: 15px; }
+
+  .loader {
+    width: 32px; height: 32px; margin: 0 auto 12px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  /* ===== BOTTOM SHEET ===== */
+  .overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.55);
+    z-index: 100; opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+  }
+
+  .overlay.on { opacity: 1; pointer-events: all; }
+
+  .sheet {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: var(--bg2);
+    border-radius: 18px 18px 0 0;
+    z-index: 101;
+    transform: translateY(100%);
+    transition: transform 0.28s cubic-bezier(0.32,0.72,0,1);
+    padding-bottom: env(safe-area-inset-bottom, 20px);
+    max-height: 85vh;
+    overflow-y: auto;
+  }
+
+  .sheet.on { transform: translateY(0); }
+
+  .sheet-handle {
+    width: 36px; height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    margin: 12px auto 14px;
+  }
+
+  .sheet-top {
+    padding: 0 20px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 14px;
+  }
+
+  .sheet-big-dot {
+    width: 16px; height: 16px; border-radius: 50%; flex-shrink: 0;
+  }
+
+  .sheet-big-dot.online { background: var(--green); box-shadow: 0 0 8px rgba(76,217,100,0.5); }
+  .sheet-big-dot.offline { background: var(--gray); }
+
+  .sheet-name-block .name { font-size: 18px; font-weight: 700; }
+  .sheet-name-block .status { font-size: 13px; margin-top: 2px; }
+  .sheet-name-block .status.online { color: var(--green); }
+  .sheet-name-block .status.offline { color: var(--gray); }
+
+  .sheet-rows { padding: 14px 20px; display: flex; flex-direction: column; gap: 13px; }
+
+  .sheet-row { display: flex; justify-content: space-between; align-items: center; }
+  .slabel { font-size: 13px; color: var(--text2); }
+
+  .sval {
+    font-size: 14px; font-weight: 500; color: var(--text);
+  }
+
+  .ip-chip {
+    font-family: 'SF Mono','Courier New',monospace;
+    font-size: 13px;
+    background: var(--bg); padding: 4px 9px;
+    border-radius: 7px; color: var(--accent);
+    cursor: pointer; transition: background 0.2s;
+    user-select: all;
+  }
+
+  .ip-chip.copied { background: rgba(76,217,100,0.15); color: var(--green); }
+
+  .sheet-btn {
+    margin: 4px 20px 8px;
+    padding: 14px;
+    background: var(--accent);
+    border: none; border-radius: 13px;
+    color: white; font-size: 16px; font-weight: 600;
+    width: calc(100% - 40px);
+    cursor: pointer; display: flex;
+    align-items: center; justify-content: center; gap: 8px;
+    transition: opacity 0.15s;
+  }
+
+  .sheet-btn:active { opacity: 0.75; }
+  .sheet-btn:disabled { opacity: 0.35; cursor: default; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-top">
+    <div>
+      <div class="header-title">📡 Router Monitor</div>
+      <div class="header-stats" id="stats">Загрузка...</div>
+    </div>
+    <button class="refresh-btn" id="refresh-btn" onclick="loadDevices(true)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M23 4v6h-6"/>
+        <path d="M1 20v-6h6"/>
+        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+      </svg>
+    </button>
+  </div>
+
+  <div class="search-wrap">
+    <span class="search-icon">🔍</span>
+    <input class="search-input" id="search"
+           placeholder="z56-93, m56-11, VasyaOnline..."
+           oninput="onSearch()"
+           autocomplete="off" autocorrect="off" spellcheck="false">
+    <button class="clear-btn" id="clear-btn" onclick="clearSearch()">✕</button>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" id="tab-all"     onclick="setFilter('all')">Все <span id="cnt-all"></span></div>
+    <div class="tab"        id="tab-online"  onclick="setFilter('online')">🟢 <span id="cnt-on"></span></div>
+    <div class="tab"        id="tab-offline" onclick="setFilter('offline')">⚫ <span id="cnt-off"></span></div>
+  </div>
+</div>
+
+<!-- ACCOUNT BAR -->
+<div class="account-bar">
+  <div class="acc-tab active" id="atab-all" onclick="setAcc('all')">Все<span class="acc-cnt" id="acnt-all"></span></div>
+  <div class="acc-tab" id="atab-1" onclick="setAcc(1)">Учётка 1<span class="acc-cnt" id="acnt-1"></span></div>
+  <div class="acc-tab" id="atab-2" onclick="setAcc(2)">Учётка 2<span class="acc-cnt" id="acnt-2"></span></div>
+  <div class="acc-tab" id="atab-3" onclick="setAcc(3)">Учётка 3<span class="acc-cnt" id="acnt-3"></span></div>
+  <div class="acc-tab" id="atab-4" onclick="setAcc(4)">Учётка 4<span class="acc-cnt" id="acnt-4"></span></div>
+</div>
+
+<!-- LIST -->
+<div class="list-wrap" id="list-wrap">
+  <div class="center-msg"><div class="loader"></div><div class="txt">Загрузка...</div></div>
+</div>
+
+<!-- OVERLAY + SHEET -->
+<div class="overlay" id="overlay" onclick="closeSheet()"></div>
+<div class="sheet" id="sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-top">
+    <div class="sheet-big-dot" id="s-dot"></div>
+    <div class="sheet-name-block">
+      <div class="name" id="s-name"></div>
+      <div class="status" id="s-status"></div>
+    </div>
+  </div>
+  <div class="sheet-rows">
+    <div class="sheet-row">
+      <span class="slabel">Tailscale IP</span>
+      <span class="ip-chip" id="s-ip" onclick="copyIP()"></span>
+    </div>
+    <div class="sheet-row">
+      <span class="slabel">Учётка</span>
+      <span class="sval" id="s-acc"></span>
+    </div>
+    <div class="sheet-row">
+      <span class="slabel">Последний раз</span>
+      <span class="sval" id="s-last"></span>
+    </div>
+    <div class="sheet-row">
+      <span class="slabel">Добавлен</span>
+      <span class="sval" id="s-created"></span>
+    </div>
+  </div>
+  <button class="sheet-btn" id="s-btn" onclick="openAdmin()">🌐 Открыть админку</button>
+</div>
+
+<script>
+const tg = window.Telegram?.WebApp;
+if (tg) { tg.ready(); tg.expand(); }
+
+let allDevices = [];
+let filter = 'all';
+let accFilter = 'all';
+let search = '';
+let selected = null;
+
+async function loadDevices(force = false) {
+  const btn = document.getElementById('refresh-btn');
+  btn.classList.add('spinning');
+  setTimeout(() => btn.classList.remove('spinning'), 500);
+
+  try {
+    const url = force ? '/api/refresh' : '/api/devices';
+    const r = await fetch(url);
+    const data = await r.json();
+    allDevices = data.devices;
+    updateStats(data.online, data.offline, data.total);
+    render();
+  } catch(e) {
+    document.getElementById('list-wrap').innerHTML =
+      `<div class="center-msg"><div class="icon">⚠️</div><div class="txt">Ошибка загрузки</div></div>`;
+  }
+}
+
+function updateStats(on, off, total) {
+  document.getElementById('stats').textContent = `${total} всего · 🟢 ${on} · ⚫ ${off}`;
+  document.getElementById('cnt-all').textContent = total;
+  document.getElementById('cnt-on').textContent = on;
+  document.getElementById('cnt-off').textContent = off;
+  updateAccCounts();
+}
+
+function updateAccCounts() {
+  const limit = 100;
+  const counts = {1: 0, 2: 0, 3: 0, 4: 0};
+  allDevices.forEach(d => { if (counts[d.acc] !== undefined) counts[d.acc]++; });
+  const total = allDevices.length;
+
+  const allEl = document.getElementById('acnt-all');
+  allEl.textContent = total;
+  allEl.className = 'acc-cnt' + (total > limit ? ' over' : '');
+
+  [1, 2, 3, 4].forEach(n => {
+    const c = counts[n];
+    const el = document.getElementById(`acnt-${n}`);
+    el.textContent = `${c} / ${limit}`;
+    el.className = 'acc-cnt' + (c > limit ? ' over' : '');
+  });
+}
+
+function getFiltered() {
+  return allDevices.filter(d => {
+    if (filter === 'online' && !d.online) return false;
+    if (filter === 'offline' && d.online) return false;
+    if (accFilter !== 'all' && d.acc !== accFilter) return false;
+    if (search) {
+      const q = search.toLowerCase();
+      return d.name.toLowerCase().includes(q) || d.ip.includes(q);
+    }
+    return true;
+  });
+}
+
+function render() {
+  const filtered = getFiltered();
+  const wrap = document.getElementById('list-wrap');
+
+  if (!filtered.length) {
+    wrap.innerHTML = `<div class="center-msg"><div class="icon">🔍</div><div class="txt">Ничего не найдено</div></div>`;
+    return;
+  }
+
+  const online = filtered.filter(d => d.online);
+  const offline = filtered.filter(d => !d.online);
+  let html = '';
+
+  if (online.length && filter !== 'offline') {
+    if (filter === 'all') html += `<div class="section-label">🟢 Онлайн · ${online.length}</div>`;
+    html += online.map(row).join('');
+  }
+  if (offline.length && filter !== 'online') {
+    if (filter === 'all') html += `<div class="section-label">⚫ Офлайн · ${offline.length}</div>`;
+    html += offline.map(row).join('');
+  }
+
+  wrap.innerHTML = html;
+}
+
+function row(d) {
+  const idx = d.acc;
+  const action = d.online ? `openDirect(${JSON.stringify(d)})` : `openSheet(${JSON.stringify(d)})`;
+  return `<div class="router-row" onclick='${action}'>
+    <div class="dot ${d.online ? 'online' : 'offline'}"></div>
+    <div class="router-info">
+      <div class="router-name">${d.name}</div>
+      <div class="router-sub">${d.ip}</div>
+    </div>
+    <div class="router-right">
+      <span class="badge b${idx}">Уч. ${idx}</span>
+      <span class="last-time">${d.last}</span>
+    </div>
+  </div>`;
+}
+
+function openDirect(d) {
+  const url = `http://${d.ip}`;
+  if (tg) {
+    tg.openLink(url);
+  } else {
+    window.open(url, '_blank');
+  }
+}
+
+function setFilter(f) {
+  filter = f;
+  ['all','online','offline'].forEach(t =>
+    document.getElementById(`tab-${t}`).classList.toggle('active', t === f)
+  );
+  render();
+}
+
+function setAcc(a) {
+  accFilter = a;
+  const idx = a === 'all' ? 0 : a;
+  document.querySelectorAll('.acc-tab').forEach((el, i) => {
+    el.classList.toggle('active', i === idx);
+  });
+  render();
+}
+
+function onSearch() {
+  search = document.getElementById('search').value;
+  document.getElementById('clear-btn').style.display = search ? 'block' : 'none';
+  render();
+}
+
+function clearSearch() {
+  document.getElementById('search').value = '';
+  search = '';
+  document.getElementById('clear-btn').style.display = 'none';
+  render();
+}
+
+function openSheet(d) {
+  selected = d;
+  document.getElementById('s-dot').className = `sheet-big-dot ${d.online ? 'online' : 'offline'}`;
+  document.getElementById('s-name').textContent = d.name;
+  document.getElementById('s-status').textContent = d.online ? '🟢 Онлайн' : '⚫ Офлайн';
+  document.getElementById('s-status').className = `status ${d.online ? 'online' : 'offline'}`;
+  document.getElementById('s-ip').textContent = d.ip;
+  document.getElementById('s-ip').classList.remove('copied');
+  document.getElementById('s-acc').textContent = `Учётка ${d.acc}`;
+  document.getElementById('s-last').textContent = d.last;
+  document.getElementById('s-created').textContent = d.created;
+
+  const btn = document.getElementById('s-btn');
+  btn.disabled = !d.online;
+  btn.textContent = d.online ? '🌐 Открыть админку' : '⚫ Роутер офлайн';
+
+  document.getElementById('overlay').classList.add('on');
+  document.getElementById('sheet').classList.add('on');
+}
+
+function closeSheet() {
+  document.getElementById('overlay').classList.remove('on');
+  document.getElementById('sheet').classList.remove('on');
+}
+
+function openAdmin() {
+  if (!selected?.online) return;
+  const url = `http://${selected.ip}`;
+  if (tg) {
+    tg.openLink(url);
+  } else {
+    window.open(url, '_blank');
+  }
+}
+
+function copyIP() {
+  if (!selected) return;
+  const chip = document.getElementById('s-ip');
+  navigator.clipboard.writeText(selected.ip).catch(() => {});
+  chip.classList.add('copied');
+  chip.textContent = '✓ скопировано';
+  setTimeout(() => {
+    chip.classList.remove('copied');
+    chip.textContent = selected.ip;
+  }, 1500);
+}
+
+// Старт
+loadDevices();
+// Автообновление каждые 7 сек
+setInterval(() => loadDevices(), 7000);
+</script>
+</body>
+</html>

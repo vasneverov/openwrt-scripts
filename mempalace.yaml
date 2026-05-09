@@ -1,0 +1,70 @@
+wing: claudecode
+rooms:
+- name: music
+  description: Files from music/
+  keywords:
+  - music
+  - music
+- name: writer_bot
+  description: Files from writer-bot/
+  keywords:
+  - writer_bot
+  - writer-bot
+- name: vpn
+  description: Files from VPN/
+  keywords:
+  - vpn
+  - vpn
+- name: awesome_design_md
+  description: Files from awesome-design-md/
+  keywords:
+  - awesome_design_md
+  - awesome-design-md
+- name: "\u043A\u043B\u044E\u0447\u0438"
+  description: "Files from \u043A\u043B\u044E\u0447\u0438/"
+  keywords:
+  - "\u043A\u043B\u044E\u0447\u0438"
+  - "\u043A\u043B\u044E\u0447\u0438"
+- name: transcriptions
+  description: Files from transcriptions/
+  keywords:
+  - transcriptions
+  - transcriptions
+- name: tailscale_miniapp
+  description: Files from tailscale-miniapp/
+  keywords:
+  - tailscale_miniapp
+  - tailscale-miniapp
+- name: wr3000s
+  description: Files from WR3000S/
+  keywords:
+  - wr3000s
+  - wr3000s
+- name: wr3000h
+  description: Files from WR3000H/
+  keywords:
+  - wr3000h
+  - wr3000h
+- name: mtproto_install
+  description: Files from mtproto-install/
+  keywords:
+  - mtproto_install
+  - mtproto-install
+- name: bot_vpn
+  description: Files from BOT_VPN/
+  keywords:
+  - bot_vpn
+  - bot_vpn
+- name: pooblika_seo
+  description: Files from pooblika-seo/
+  keywords:
+  - pooblika_seo
+  - pooblika-seo
+- name: remotion
+  description: Files from REMOTION/
+  keywords:
+  - remotion
+  - remotion
+- name: general
+  description: Files that don't fit other rooms
+  keywords: []

@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tailscale Install — WR3000H OpenWrt 25.12</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #1a1a2e; color: #e0e0e0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; padding: 30px 20px; max-width: 860px; margin: 0 auto; }
+  h1 { font-size: 18px; color: #a0c4ff; margin-bottom: 6px; }
+  .meta { font-size: 13px; color: #888; margin-bottom: 28px; }
+  .block { background: #16213e; border: 1px solid #0f3460; border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+  .label { font-size: 12px; color: #7a9cc0; margin-bottom: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+  .cmd { font-family: "SF Mono", "Fira Code", monospace; font-size: 12px; color: #b8d4f0; background: #0d1b2a; border-radius: 6px; padding: 12px 14px; word-break: break-all; line-height: 1.6; border: 1px solid #1e3a5f; margin-bottom: 12px; }
+  .copy-btn { background: #0f3460; color: #a0c4ff; border: 1px solid #1e5a9c; border-radius: 8px; padding: 10px 20px; font-size: 14px; cursor: pointer; transition: background 0.15s, transform 0.1s; user-select: none; -webkit-user-select: none; width: 100%; }
+  .copy-btn:active { transform: scale(0.98); }
+  .copy-btn.copied { background: #1a6b3c; border-color: #2ea05a; color: #7effc0; }
+  .note { font-size: 12px; color: #888; margin-top: 12px; line-height: 1.8; }
+  .step { display: inline-block; background: #0f3460; color: #a0c4ff; border-radius: 4px; padding: 1px 8px; font-size: 11px; margin-right: 4px; font-weight: 600; }
+  .warn { color: #f0a060; font-size: 12px; margin-top: 8px; }
+</style>
+</head>
+<body>
+<h1>Tailscale — установка на WR3000H / OpenWrt 25.12</h1>
+<div class="meta">Cudy WR3000H · OpenWrt 25.12 · apk · gunanovo repo · serve → auth</div>
+
+<div class="block">
+  <div class="label"><span class="step">1</span> Установка + запуск + serve + авторизация</div>
+  <div class="cmd" id="cmd1">wget -O /etc/apk/keys/gunanovo@github.io.pub https://gunanovo.github.io/openwrt-tailscale/key-build.rsa.pub && echo "https://gunanovo.github.io/openwrt-tailscale/$(cat /etc/apk/arch)/packages.adb" >> /etc/apk/repositories.d/customfeeds.list && apk update && apk add tailscale iptables ip6tables && killall tailscaled 2>/dev/null; sleep 2; uci set tailscale.settings.fw_mode=nftables; uci commit tailscale; /etc/init.d/tailscale enable; tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/var/run/tailscale/tailscaled.sock & sleep 3; tailscale serve --bg --tcp 80 tcp://localhost:80; tailscale serve --bg --tcp 443 tcp://localhost:443; tailscale serve --bg --tcp 22 tcp://localhost:22; tailscale up --accept-dns=false --accept-routes --reset; tailscale serve status</div>
+  <button class="copy-btn" onclick="copyCmd(this,'cmd1')">Копировать команду 1</button>
+  <div class="note">
+    После вставки дождись ссылки <b>login.tailscale.com/a/...</b> — открой в браузере.<br>
+    После авторизации увидишь <b>Success</b> и список портов.
+  </div>
+</div>
+
+<div class="block">
+  <div class="label"><span class="step">2</span> Автозапуск serve после перезагрузки (rc.local)</div>
+  <div class="cmd" id="cmd2">echo -e '#!/bin/sh\n(sleep 10\ntailscale serve --bg --tcp 80 tcp://localhost:80\ntailscale serve --bg --tcp 22 tcp://localhost:22\ntailscale serve --bg --tcp 443 tcp://localhost:443) &\nexit 0' > /etc/rc.local && chmod +x /etc/rc.local && echo OK</div>
+  <button class="copy-btn" onclick="copyCmd(this,'cmd2')">Копировать команду 2</button>
+  <div class="note">Выполни после успешного шага 1. Должно вывести: <b>OK</b></div>
+</div>
+
+<div class="block">
+  <div class="label">Если tailscale уже установлен — только запуск</div>
+  <div class="cmd" id="cmd3">killall tailscaled 2>/dev/null; sleep 2; tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/var/run/tailscale/tailscaled.sock & sleep 3; tailscale serve --bg --tcp 80 tcp://localhost:80; tailscale serve --bg --tcp 443 tcp://localhost:443; tailscale serve --bg --tcp 22 tcp://localhost:22; tailscale up --accept-dns=false --accept-routes --reset; tailscale serve status</div>
+  <button class="copy-btn" onclick="copyCmd(this,'cmd3')">Копировать команду</button>
+</div>
+
+<script>
+function copyCmd(btn, id) {
+  var text = document.getElementById(id).textContent;
+  navigator.clipboard.writeText(text).then(function() {
+    btn.textContent = '✓ Скопировано!'; btn.classList.add('copied');
+    setTimeout(function() { btn.textContent = btn.textContent.replace('✓ Скопировано!', btn.id ? 'Копировать команду' : 'Копировать команду'); btn.classList.remove('copied'); }, 2500);
+  }).catch(function() {
+    var ta = document.createElement('textarea'); ta.value = text;
+    ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select(); document.execCommand('copy');
+    document.body.removeChild(ta);
+    btn.textContent = '✓ Скопировано!'; btn.classList.add('copied');
+    setTimeout(function() { btn.classList.remove('copied'); btn.textContent = 'Копировать команду'; }, 2500);
+  });
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Check Claude Auth",
+            "type": "shell",
+            "command": "claude --version > /dev/null 2>&1 && echo '✅ Claude авторизован' || (echo '⚠️ Авторизация слетела, открываю браузер...' && claude auth login)",
+            "runOptions": {
+                "runOn": "folderOpen"
+            },
+            "presentation": {
+                "reveal": "silent",
+                "panel": "shared",
+                "showReuseMessage": false,
+                "close": false
+            },
+            "problemMatcher": []
+        }
+    ]
+}
