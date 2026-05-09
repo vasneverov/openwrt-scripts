@@ -87,11 +87,13 @@ push_to_github() {
     echo ""
 
     echo -e "${YELLOW}>>> ШАГ 3: Обновление локального .git-routerlab${NC}"
-    sshpass -p "$PL5_PASS" rsync -avz --delete "$PL5:$PL5_DIR/.git/" "$LOCAL_DIR/.git-routerlab/" 2>&1 | tail -1
+    # Используем --no-owner --no-group и игнорируем ошибки чтения
+    sshpass -p "$PL5_PASS" rsync -avz --delete --no-owner --no-group --ignore-errors "$PL5:$PL5_DIR/.git/" "$LOCAL_DIR/.git-routerlab/" 2>&1 | tail -3
     cd "$LOCAL_DIR"
     git fetch routerlab-local 2>/dev/null
     git reset --hard routerlab-local/main 2>/dev/null
     echo -e "${GREEN}✓ Локальный репозиторий обновлён${NC}"
+    echo "HEAD: $(git rev-parse HEAD | head -c 8)"
 }
 
 pull_from_github() {
@@ -122,11 +124,12 @@ pull_from_github() {
     echo ""
 
     echo -e "${YELLOW}>>> ШАГ 3: Обновление .git-routerlab${NC}"
-    sshpass -p "$PL5_PASS" rsync -avz --delete "$PL5:$PL5_DIR/.git/" "$LOCAL_DIR/.git-routerlab/" 2>&1 | tail -1
+    sshpass -p "$PL5_PASS" rsync -avz --delete --no-owner --no-group --ignore-errors "$PL5:$PL5_DIR/.git/" "$LOCAL_DIR/.git-routerlab/" 2>&1 | tail -3
     cd "$LOCAL_DIR"
     git fetch routerlab-local 2>/dev/null
     git reset --hard routerlab-local/main 2>/dev/null
     echo -e "${GREEN}✓ Локальный репозиторий обновлён${NC}"
+    echo "HEAD: $(git rev-parse HEAD | head -c 8)"
 }
 
 # Разбор аргументов
