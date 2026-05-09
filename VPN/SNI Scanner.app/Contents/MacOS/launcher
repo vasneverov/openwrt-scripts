@@ -1,0 +1,3 @@
+#!/bin/bash
+SCRIPT="$(dirname "$0")/../Resources/sni_scanner.py"
+exec "/Library/Developer/CommandLineTools/usr/bin/python3" "$SCRIPT"
