@@ -8,6 +8,25 @@
 
 ## 1. RELAY-СХЕМЫ (готовые, DNAT настроен)
 
+### 1.0 СПб → bSPB → CZ3 (Чехия) — роутерные ключи
+
+| Параметр | Значение |
+|----------|----------|
+| Relay | bSPB `5.35.84.151:8880` |
+| Цель | CZ3 `85.137.164.179:8880` |
+| Страна выхода | 🇨🇿 Чехия |
+| pbk | `Ef6WCkwNoSXIRWamiaU8j-icLatwufKolHUF1R8G3gs` |
+| sid | `b9a82e` |
+| SNI | `www.apple.com` |
+| Inbound ID (CZ3) | 17 (✅ CZ3_rout_8880) |
+| Файл ключей | `ключи/vless_cz3_rout_8880_98.md` (98-107), `ключи/vless_cz3_rout_8880_108.md` (108-120) |
+
+**VLESS URL:**
+```
+vless://UUID@5.35.84.151:8880?type=grpc&security=reality&mode=gun&serviceName=&pbk=Ef6WCkwNoSXIRWamiaU8j-icLatwufKolHUF1R8G3gs&sid=b9a82e&sni=www.apple.com&fp=chrome&spx=/#ROUTER_ApeCZ3
+```
+
+
 ### 1.1 СПб → bSPB → Fin3 (Финляндия)
 
 | Параметр | Значение |

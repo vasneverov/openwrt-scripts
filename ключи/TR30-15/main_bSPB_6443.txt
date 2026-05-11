@@ -1,7 +1,0 @@
-# TR30-15 Main через bSPB relay
-# Port 6443 → Fin3
-# Created: 2026-05-05
-# UUID: 03a7ab9f-d859-4726-8174-8683bc477bda
-# Status: ● READY
-
-vless://03a7ab9f-d859-4726-8174-8683bc477bda@5.35.84.151:6443?type=grpc&security=reality&mode=gun&serviceName=&pbk=IltXRYeXrYkNGI7ieroMIJqaTwg7q-UTliLMIkVvi1s&sid=c89b9149&sni=www.apple.com&fp=chrome&spx=%2F#TR30-15_main_bSPB

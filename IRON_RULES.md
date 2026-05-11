@@ -1,5 +1,19 @@
 # ЖЕЛЕЗНЫЕ ПРАВИЛА (IRON RULES)
 
+## 0. Tailscale — НИЧЕГО НЕ ДЕЛАТЬ (АБСОЛЮТНЫЙ ЗАПРЕТ)
+- **Никогда** не применять kill/killall к tailscale/tailscaled
+- **Никогда** не выполнять `service tailscale stop/start/restart/enable/disable`
+- **Никогда** не трогать tailscale up (даже --reset)
+- **Никогда** не редактировать rc.local (удалять/менять tailscale строки)
+- **Никогда** не перезагружать firewall (fw4) — это сносит nftables и Tailscale отваливается
+- **Никогда** не применять nft flush — это убивает Tailscale
+- **Единственное что можно:** uci commit tailscale (без reload)
+- **Если Tailscale упал:** ждать watchdog (2 мин), не дёргать
+- **Если точка красная/offline:** не паниковать, watchdog поднимет сам
+- **SSH идёт через Tailscale → любой kill/restart = потеря SSH.** Никогда не делать удалённо.
+- **Золотое правило: Tailscale работает — не лезь. Tailscale упал — watchdog поднимет, не лезь.**
+- **Команда "ныряй" = сразу rescue_generic.sh (через SSH), потом диагностика, потом план лечения. Без самодеятельности. Никаких kill/killall. Никаких действий без одобрения. rescue_generic.sh — единственное что можно делать сразу.**
+
 > **Перед чтением правил — прочитай `.clinerules/karpathy.md` (Karpathy принципы)**
 > **Формат ответа — `.clinerules/caveman.md` (кратко, без воды)**
 > 

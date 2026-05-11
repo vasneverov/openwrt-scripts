@@ -1,285 +1,437 @@
 #!/usr/bin/env python3
 """
-Универсальный скрипт для создания VLESS ключей на X-UI панелях.
+create_vless_key.py v2 — универсальный создатель VLESS-ключей
+С псевдографическим интерфейсом в терминале.
 
-Использование:
-    python3 create_vless_key.py --router rom5office --panel fin3
-    python3 create_vless_key.py --router myrouter --panel begetspb --inbound 4
+Usage:
+  python3 create_vless_key.py <router_name> <city> <country> [--type main|yt]
+  python3 create_vless_key.py TR56-13 spb finland
+  python3 create_vless_key.py Z56-94 msk poland
+  python3 create_vless_key.py M56-13 spb yt --type yt
 
-Панели (predifined):
-    - fin3: 144.31.66.115:5050, inbound 2 (WL_rout_fin3_4191)
-    - begetspb: 5.35.84.151:5050, inbound 1 (main)
-    - begetspb-yt: 5.35.84.151:5050, inbound 4 (YouTube direct)
-
-Ручная настройка:
-    --panel-ip, --panel-port, --inbound-id, --relay-ip, --relay-port, --pbk, --sid
+Source: ключи/RELAY_REFERENCE.json
 """
 
-import argparse
-import asyncio
-import json
-import ssl
-import uuid
-import sys
+import sys, os, json, uuid, subprocess, time, datetime, threading
 
-# Предустановленные конфигурации панелей
-PANELS = {
-    "fin3": {
-        "ip": "144.31.66.115",
-        "port": "5050",
-        "inbound_id": 3,  # После восстановления 25.04.2026
-        "label": "Fin3",
-        "relay_ip": "5.35.84.151",
-        "relay_port": "4191",
-        "pbk": "XJC_sc4MP6pFj2FNNGUu93SEoI6sKww2sCsh5prWWRw",
-        "sid": "932e706c",
-        "default_expiry_days": 365,  # Стандарт: 1 год
-        "default_traffic_gb": 1000,  # Стандарт: 1 TB
-    },
-    "begetspb": {
-        "ip": "5.35.84.151",
-        "port": "5050",
-        "inbound_id": 1,
-        "label": "bSPB_direct",
-        "relay_ip": "5.35.84.151",
-        "relay_port": "6443",
-        "pbk": "me9yoc9is4ZouFPS7e_TBjuBvyc8HZz6PCEogODIjSM",
-        "sid": "ddcb53b3",
-    },
-    "begetspb-yt": {
-        "ip": "5.35.84.151",
-        "port": "5050",
-        "inbound_id": 4,
-        "label": "bSPB_direct_8853",
-        "relay_ip": "5.35.84.151",
-        "relay_port": "8853",
-        "pbk": "me9yoc9is4ZouFPS7e_TBjuBvyc8HZz6PCEogODIjSM",
-        "sid": "ddcb53b3",
-    },
+# ── Paths ──────────────────────────────────────────────────────────────────────
+BASE_DIR     = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+REF_FILE     = os.path.join(BASE_DIR, 'ключи', 'RELAY_REFERENCE.json')
+CHECKER      = os.path.join(BASE_DIR, 'check_vless.py')
+CATALOG_FILE = os.path.join(BASE_DIR, 'ключи', 'KEY_CATALOG_ALL.md')
+
+# ── ANSI ───────────────────────────────────────────────────────────────────────
+R       = "\033[0m"
+BOLD    = "\033[1m"
+DIM     = "\033[2m"
+GREEN   = "\033[92m"
+RED     = "\033[91m"
+YELLOW  = "\033[93m"
+CYAN    = "\033[96m"
+BLUE    = "\033[94m"
+MAGENTA = "\033[95m"
+WHITE   = "\033[97m"
+
+def c(col, t): return f"{col}{t}{R}"
+
+# ── Box drawing ────────────────────────────────────────────────────────────────
+W = 64  # box width
+
+def box_top(title=""):
+    if title:
+        inner = f"─ {c(BOLD+CYAN, title)} "
+        pad   = W - ansi_len(inner) - 1
+        return f"  ┌{inner}{'─'*max(0, pad)}┐"
+    return f"  ┌{'─'*W}┐"
+
+def box_bot():  return f"  └{'─'*W}┘"
+def box_sep():  return f"  ├{'─'*W}┤"
+def box_empty(): return f"  │ {' '*(W-2)} │"
+
+def box_row(left="", right=""):
+    if right:
+        gap = W - 2 - ansi_len(left) - ansi_len(right)
+        return f"  │ {left}{' '*max(1, gap)}{right} │"
+    pad = W - 2 - ansi_len(left)
+    return f"  │ {left}{' '*max(0, pad)} │"
+
+def ansi_len(s): return len(re.sub(r'\033\[[^m]*m', '', s))
+
+# ── Spinner ────────────────────────────────────────────────────────────────────
+SPIN = ['⠋','⠙','⠹','⠸','⠼','⠴','⠦','⠧','⠇','⠏']
+_si = 0
+def spinner():
+    global _si
+    s = SPIN[_si % len(SPIN)]; _si += 1; return s
+
+def spin_print(msg):
+    sys.stdout.write(f"\r  {c(CYAN, spinner())} {c(DIM, msg)}{' '*30}")
+    sys.stdout.flush()
+
+def spin_clear():
+    sys.stdout.write(f"\r{' '*80}\r")
+    sys.stdout.flush()
+
+# ── Progress bar ───────────────────────────────────────────────────────────────
+def progress_bar(pct, width=20):
+    filled = int(pct * width / 100)
+    bar = c(GREEN, '█'*filled) + c(DIM, '░'*(width-filled))
+    return f"{bar} {c(BOLD, f'{pct:3d}%')}"
+
+# ── Step display ───────────────────────────────────────────────────────────────
+def step_done(num, label, detail=""):
+    d = f" {c(DIM, detail)}" if detail else ""
+    print(f"  {c(GREEN, '●')} {c(BOLD, f'[{num}/6]')} {c(GREEN, label)}{d}")
+
+def step_fail(num, label, detail=""):
+    d = f" {c(RED, detail)}" if detail else ""
+    print(f"  {c(RED, '●')} {c(BOLD, f'[{num}/6]')} {c(RED, label)}{d}")
+
+def step_warn(num, label, detail=""):
+    d = f" {c(YELLOW, detail)}" if detail else ""
+    print(f"  {c(YELLOW, '●')} {c(BOLD, f'[{num}/6]')} {c(YELLOW, label)}{d}")
+
+def step_wait(num, label):
+    print(f"  {c(CYAN, '○')} {c(BOLD, f'[{num}/6]')} {c(DIM, label)}", end='')
+    sys.stdout.flush()
+
+def step_clear():
+    print(f"\r{' '*80}\r", end='')
+    sys.stdout.flush()
+
+# ── Country flags ──────────────────────────────────────────────────────────────
+FLAGS = {
+    'finland': '🇫🇮', 'poland': '🇵🇱', 'italy': '🇮🇹', 'czech': '🇨🇿',
+    'russia': '🇷🇺'
 }
 
-USERNAME = "ad"
-PASSWORD = "56"
-SNI = "www.apple.com"
+# ── Load reference ─────────────────────────────────────────────────────────────
+def load_ref():
+    if not os.path.exists(REF_FILE):
+        print(f"\n  {c(RED, '✗')} {c(BOLD, 'RELAY_REFERENCE.json не найден')}")
+        print(f"    {c(DIM, REF_FILE)}")
+        sys.exit(1)
+    with open(REF_FILE) as f:
+        return json.load(f)
 
+def find_scheme(ref, city, country, scheme_type):
+    for r in ref.get('relays', []):
+        if r['city'] == city and r['country'] == country:
+            return ('relay', r)
+    for d in ref.get('directs', []):
+        if d['city'] == city and d.get('type', 'main') == scheme_type:
+            return ('direct', d)
+    return None, None
 
-def create_vless_key(uuid_str: str, relay_ip: str, relay_port: str, pbk: str, sid: str, label: str) -> str:
-    """Generate VLESS key URL."""
-    return (
-        f"vless://{uuid_str}@{relay_ip}:{relay_port}?"
-        f"type=grpc&security=reality&mode=gun&serviceName=&"
-        f"pbk={pbk}&sid={sid}&sni={SNI}&fp=chrome&spx=%2F"
-        f"#{label}"
-    )
+# ── SSH helpers ────────────────────────────────────────────────────────────────
+def _has_sshpass():
+    r = subprocess.run(['which', 'sshpass'], capture_output=True)
+    return r.returncode == 0
 
-
-async def create_key(
-    router_name: str,
-    panel_config: dict,
-    custom_email: str = None,
-    dry_run: bool = False,
-) -> str:
-    """Create VLESS key on X-UI panel."""
-
-    panel_ip = panel_config["ip"]
-    panel_port = panel_config["port"]
-    inbound_id = panel_config["inbound_id"]
-    relay_ip = panel_config["relay_ip"]
-    relay_port = panel_config["relay_port"]
-    pbk = panel_config["pbk"]
-    sid = panel_config["sid"]
-    label_base = panel_config["label"]
-
-    # Generate email
-    if custom_email:
-        email = custom_email
+def ssh_run(host, password, cmd, timeout=15):
+    if _has_sshpass() and password:
+        full = ['sshpass', '-p', password, 'ssh',
+                '-o', 'StrictHostKeyChecking=no',
+                '-o', 'ConnectTimeout=5',
+                '-o', 'LogLevel=quiet',
+                f'root@{host}', cmd]
     else:
-        email = f"{router_name}-{label_base.lower().replace('_', '-')}"
-
-    print(f"🔐 Connecting to panel {panel_ip}:{panel_port}...")
-    print(f"📧 Email will be: {email}")
-
-    if dry_run:
-        print("📝 DRY RUN: Would create client with above email")
-        return None
-
-    # Setup SSL context
-    ctx = ssl.create_default_context()
-    ctx.check_hostname = False
-    ctx.verify_mode = ssl.CERT_NONE
-
-    # Import aiohttp here to fail gracefully if not installed
+        full = ['ssh',
+                '-o', 'StrictHostKeyChecking=no',
+                '-o', 'ConnectTimeout=5',
+                '-o', 'BatchMode=yes',
+                '-o', 'LogLevel=quiet',
+                f'root@{host}', cmd]
     try:
-        import aiohttp
-    except ImportError:
-        print("❌ Error: aiohttp not installed. Run: pip install aiohttp")
+        r = subprocess.run(full, capture_output=True, timeout=timeout)
+        return r.stdout.decode(errors='ignore').strip(), r.returncode == 0
+    except subprocess.TimeoutExpired:
+        return '', False
+    except Exception as e:
+        return str(e), False
+
+# ── Add client via sqlite ──────────────────────────────────────────────────────
+def add_client_sqlite(host, password, inbound_id, email, new_uuid):
+    sql = f"""
+python3 << 'PYEOF'
+import sqlite3, json, time
+DB = '/etc/x-ui/x-ui.db'
+INBOUND_ID = {inbound_id}
+EMAIL = '{email}'
+UUID = '{new_uuid}'
+conn = sqlite3.connect(DB)
+row = conn.execute(f'SELECT settings FROM inbounds WHERE id={{INBOUND_ID}}').fetchone()
+if not row:
+    print("INBOUND NOT FOUND")
+    exit(1)
+data = json.loads(row[0])
+clients = data.get('clients', [])
+for c in clients:
+    if c.get('email') == EMAIL:
+        print(f"EXISTS: {{EMAIL}}")
+        conn.close()
+        exit(0)
+clients.append({{
+    'id': UUID, 'email': EMAIL, 'limitIp': 0,
+    'totalGB': 1099511627776,
+    'expiryTime': int((time.time() + 365*24*3600) * 1000),
+    'enable': True, 'tgId': '', 'subId': '', 'comment': ''
+}})
+data['clients'] = clients
+conn.execute(f'UPDATE inbounds SET settings=? WHERE id={{INBOUND_ID}}', [json.dumps(data)])
+conn.commit()
+count = len(data['clients'])
+conn.close()
+print(f"OK: {{count}} clients")
+PYEOF
+"""
+    out, ok = ssh_run(host, password, sql)
+    if not ok: return False, f"SSH error: {out[:200]}"
+    if 'INBOUND NOT FOUND' in out: return False, f"Inbound {inbound_id} not found"
+    if out.startswith('EXISTS:'): return True, "already exists"
+    if out.startswith('OK:'): return True, out.strip()
+    return False, f"unexpected: {out[:200]}"
+
+def restart_xray(host, password):
+    out, ok = ssh_run(host, password,
+        "kill -9 $(pgrep xray) 2>/dev/null; sleep 2; pgrep xray && echo 'running' || echo 'restarted'")
+    return 'running' in out or 'restarted' in out
+
+def build_vless_url(uuid_val, host, port, pbk, sid, sni, label):
+    return f"vless://{uuid_val}@{host}:{port}?type=grpc&security=reality&mode=gun&serviceName=&pbk={pbk}&sid={sid}&sni={sni}&fp=chrome&spx=%2F#{label}"
+
+def check_key(vless_url):
+    r = subprocess.run([sys.executable, CHECKER, vless_url], capture_output=True, text=True, timeout=30)
+    return r.stdout + r.stderr
+
+def save_to_catalog(router_name, city, country, scheme_type, vless_url, label, scheme):
+    os.makedirs(os.path.dirname(CATALOG_FILE), exist_ok=True)
+    entry = f"""
+## {router_name} — {city.upper()} → {country.upper()} ({scheme_type})
+
+| Параметр | Значение |
+|----------|----------|
+| Дата | {datetime.date.today().isoformat()} |
+| Тип | {scheme_type} |
+| Город | {city} |
+| Страна | {country} |
+| Relay | {scheme.get('relay_ip', 'direct')}:{scheme.get('relay_port', scheme.get('port', '?'))} |
+| Label | {label} |
+
+```
+{vless_url}
+```
+"""
+    with open(CATALOG_FILE, 'a') as f:
+        f.write(entry)
+
+# ── Main ───────────────────────────────────────────────────────────────────────
+def main():
+    if len(sys.argv) < 4:
+        print(f"\n  {c(BOLD+CYAN, 'create_vless_key.py')} {c(DIM, '— создание VLESS-ключа')}")
+        print(f"\n  {c(DIM, 'Использование:')}")
+        print(f"    python3 create_vless_key.py {c(CYAN, '<роутер>')} {c(GREEN, '<город>')} {c(YELLOW, '<страна>')} {c(DIM, '[--type main|yt]')}")
+        print(f"\n  {c(DIM, 'Примеры:')}")
+        print(f"    python3 create_vless_key.py {c(CYAN, 'TR56-13')} {c(GREEN, 'spb')} {c(YELLOW, 'finland')}")
+        print(f"    python3 create_vless_key.py {c(CYAN, 'Z56-94')}  {c(GREEN, 'msk')} {c(YELLOW, 'poland')}")
+        print(f"    python3 create_vless_key.py {c(CYAN, 'M56-13')}  {c(GREEN, 'spb')} {c(YELLOW, 'yt')} {c(DIM, '--type yt')}")
+        print(f"\n  {c(DIM, 'Города:')} spb, msk")
+        print(f"  {c(DIM, 'Страны:')} finland, poland, italy, czech")
         sys.exit(1)
 
-    base_url = f"https://{panel_ip}:{panel_port}/{panel_port}"
+    router_name = sys.argv[1]
+    city        = sys.argv[2].lower()
+    country     = sys.argv[3].lower()
+    scheme_type = 'main'
+    if '--type' in sys.argv:
+        idx = sys.argv.index('--type')
+        if idx + 1 < len(sys.argv):
+            scheme_type = sys.argv[idx + 1].lower()
 
-    async with aiohttp.ClientSession() as session:
-        # Login
-        login_url = f"{base_url}/login"
-        resp = await session.post(login_url, json={"username": USERNAME, "password": PASSWORD}, ssl=ctx)
+    flag = FLAGS.get(country, '🌍')
 
-        if resp.status != 200:
-            print(f"❌ Login failed: HTTP {resp.status}")
-            return None
+    # ── HEADER ──────────────────────────────────────────────────────────────
+    print()
+    print(box_top(f"▶  VLESS KEY CREATOR  v2"))
+    print(box_empty())
+    print(box_row(f"  {c(DIM, 'Роутер:')}  {c(BOLD+WHITE, router_name)}"))
+    print(box_row(f"  {c(DIM, 'Схема:')}   {c(CYAN, city.upper())} → {flag} {c(YELLOW, country.upper())}  {c(DIM, f'({scheme_type})')}"))
+    print(box_empty())
+    print(box_bot())
+    print()
 
-        set_cookie = resp.headers.get("Set-Cookie", "")
-        if "3x-ui=" not in set_cookie:
-            print("❌ Login failed: No 3x-ui cookie in response")
-            return None
+    # ── STEP 1: Load reference ──────────────────────────────────────────────
+    step_wait(1, "Загрузка справочника...")
+    ref = load_ref()
+    step_clear()
+    step_done(1, "Справочник загружен", f"({len(ref.get('relays',[]))} relay, {len(ref.get('directs',[]))} direct схем)")
 
-        cookie = set_cookie.split("3x-ui=")[1].split(";")[0]
-        print(f"✅ Logged in")
+    # ── STEP 2: Find scheme ─────────────────────────────────────────────────
+    step_wait(2, "Поиск схемы...")
+    mode, scheme = find_scheme(ref, city, country, scheme_type)
+    step_clear()
+    if not scheme:
+        step_fail(2, "Схема не найдена")
+        print(f"\n  {c(RED, 'Доступные relay-схемы:')}")
+        for r in ref.get('relays', []):
+            f = FLAGS.get(r['country'], '')
+            print(f"    {c(CYAN, r['city']+'/'+r['country']):25s} → {c(DIM, r['relay_ip']+':'+str(r['relay_port']))} → {c(GREEN, r['target_server'])}  {f}")
+        print(f"\n  {c(RED, 'Доступные direct-схемы:')}")
+        for d in ref.get('directs', []):
+            print(f"    {c(CYAN, d['city']+'/'+d.get('type','main')):25s} → {c(DIM, d['server_ip']+':'+str(d['port']))}  {c(GREEN, d['label_suffix'])}")
+        sys.exit(1)
 
-        headers = {"Cookie": f"3x-ui={cookie}"}
+    if mode == 'relay':
+        relay_ip   = scheme['relay_ip']
+        relay_port = scheme['relay_port']
+        target_server = scheme['target_server']
+        target_inbound = scheme['target_inbound']
+        pbk  = scheme['pbk']
+        sid  = scheme['sid']
+        sni  = scheme['sni']
+        label_suffix = scheme['label_suffix']
+        route_str = f"{c(CYAN, relay_ip+':'+str(relay_port))} {c(DIM, '→')} {c(GREEN, target_server+':'+str(scheme['target_port']))}"
+    else:
+        relay_ip   = scheme['server_ip']
+        relay_port = scheme['port']
+        target_server = scheme['panel_server']
+        target_inbound = scheme['inbound']
+        pbk  = scheme['pbk']
+        sid  = scheme['sid']
+        sni  = scheme['sni']
+        label_suffix = scheme['label_suffix']
+        route_str = f"{c(CYAN, relay_ip+':'+str(relay_port))} {c(DIM, '(direct)')}"
 
-        # Get existing clients
-        print(f"\n📋 Checking inbound {inbound_id}...")
-        get_url = f"{base_url}/panel/api/inbounds/get/{inbound_id}"
-        resp = await session.get(get_url, headers=headers, ssl=ctx)
+    step_done(2, "Схема найдена", f"{route_str}")
 
-        if resp.status != 200:
-            print(f"❌ Failed to get inbound: HTTP {resp.status}")
-            return None
+    # ── STEP 3: Generate UUID ───────────────────────────────────────────────
+    step_wait(3, "Генерация UUID...")
+    new_uuid = str(uuid.uuid4())
+    email = f"{router_name}_{label_suffix}"
+    step_clear()
+    step_done(3, "UUID сгенерирован", f"{c(YELLOW, new_uuid)}")
 
-        data = await resp.json(content_type=None)
-        inbound = data.get("obj", {})
-        settings = json.loads(inbound.get("settings", "{}"))
-        clients = settings.get("clients", [])
+    # ── STEP 4: Add client via sqlite ───────────────────────────────────────
+    panel = ref.get('panels', {}).get(target_server)
+    if not panel:
+        step_fail(4, "Панель не найдена")
+        sys.exit(1)
 
-        print(f"Found {len(clients)} existing clients")
+    ssh_pass = panel.get('ssh')
+    host = panel.get('url', '').replace('https://', '').split(':')[0]
 
-        # Check if email already exists
-        for c in clients:
-            if c.get("email") == email:
-                print(f"⚠️ Client with email '{email}' already exists!")
-                existing_uuid = c.get("id")
-                print(f"   Existing UUID: {existing_uuid}")
-                # Return existing key
-                key = create_vless_key(existing_uuid, relay_ip, relay_port, pbk, sid, email)
-                return key
-
-        # Generate new UUID
-        new_uuid = str(uuid.uuid4())
-        print(f"\n🆕 Generated UUID: {new_uuid}")
-
-        # Calculate limits from panel config (default: 365 days, 1 TB)
-        import time
-        expiry_days = panel_config.get("default_expiry_days", 365)
-        traffic_gb = panel_config.get("default_traffic_gb", 1000)
-
-        # Convert to milliseconds timestamp (expiryTime)
-        expiry_ms = int((time.time() + expiry_days * 24 * 60 * 60) * 1000)
-        # Convert GB to bytes (totalGB)
-        traffic_bytes = int(traffic_gb * 1024 * 1024 * 1024)
-
-        print(f"⏱️  Expiry: {expiry_days} days ({expiry_ms})")
-        print(f"📊 Traffic limit: {traffic_gb} GB ({traffic_bytes} bytes)")
-
-        # Create payload
-        payload = {
-            "id": inbound_id,
-            "settings": json.dumps({
-                "clients": [
-                    {
-                        "id": new_uuid,
-                        "email": email,
-                        "limitIp": 0,
-                        "enable": True,
-                        "expiryTime": expiry_ms,
-                        "totalGB": traffic_bytes,
-                        "tgId": "",
-                        "subId": "",
-                        "comment": "",
-                    }
-                ]
-            }),
-        }
-
-        # Add client
-        print(f"\n📝 Adding client...")
-        add_url = f"{base_url}/panel/api/inbounds/addClient"
-        resp = await session.post(add_url, json=payload, headers=headers, ssl=ctx)
-
-        if resp.status != 200:
-            text = await resp.text()
-            print(f"❌ Failed to add client: HTTP {resp.status} - {text}")
-            return None
-
-        result = await resp.json(content_type=None)
-        if result.get("success"):
-            print(f"✅ Client added successfully!")
-            key = create_vless_key(new_uuid, relay_ip, relay_port, pbk, sid, email)
-            return key
+    if ssh_pass:
+        step_wait(4, "Добавление клиента на сервер...")
+        success, msg = add_client_sqlite(host, ssh_pass, target_inbound, email, new_uuid)
+        step_clear()
+        if success:
+            step_done(4, "Клиент добавлен", f"{c(DIM, email)} → {c(GREEN, target_server)} (inbound {target_inbound})")
         else:
-            print(f"❌ API error: {result}")
-            return None
+            step_warn(4, "Клиент: " + msg, "проверь вручную")
 
-
-def main():
-    parser = argparse.ArgumentParser(
-        description="Create VLESS key for router on X-UI panel",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-  %(prog)s --router rom5office --panel fin3
-  %(prog)s --router myrouter --panel begetspb --email custom-email
-  %(prog)s --router test --panel-ip 1.2.3.4 --panel-port 5050 --inbound-id 2
-
-Predefined panels: fin3, begetspb, begetspb-yt
-        """
-    )
-
-    parser.add_argument("--router", "-r", required=True, help="Router name/identifier")
-    parser.add_argument("--panel", "-p", choices=list(PANELS.keys()), help="Predefined panel config")
-    parser.add_argument("--email", "-e", help="Custom email (default: router-panel_label)")
-    parser.add_argument("--dry-run", "-n", action="store_true", help="Show what would be done without creating")
-
-    # Manual panel configuration
-    parser.add_argument("--panel-ip", help="Panel IP address")
-    parser.add_argument("--panel-port", default="5050", help="Panel port (default: 5050)")
-    parser.add_argument("--inbound-id", type=int, help="Inbound ID")
-    parser.add_argument("--relay-ip", help="Relay/connect IP for VLESS key")
-    parser.add_argument("--relay-port", help="Relay port for VLESS key")
-    parser.add_argument("--pbk", help="Public key for REALITY")
-    parser.add_argument("--sid", help="Short ID for REALITY")
-
-    args = parser.parse_args()
-
-    # Build panel config
-    if args.panel:
-        panel_config = PANELS[args.panel].copy()
-        print(f"📡 Using predefined panel: {args.panel}")
-    elif args.panel_ip and args.inbound_id and args.relay_ip and args.relay_port and args.pbk and args.sid:
-        panel_config = {
-            "ip": args.panel_ip,
-            "port": args.panel_port,
-            "inbound_id": args.inbound_id,
-            "relay_ip": args.relay_ip,
-            "relay_port": args.relay_port,
-            "pbk": args.pbk,
-            "sid": args.sid,
-            "label": "custom",
-        }
-        print(f"📡 Using manual panel configuration")
+        # Restart xray
+        step_wait(4, "Перезапуск xray...")
+        time.sleep(1)
+        xray_ok = restart_xray(host, ssh_pass)
+        step_clear()
+        if xray_ok:
+            step_done(4, "xray перезапущен", c(GREEN, "✓"))
+        else:
+            step_warn(4, "xray: не удалось перезапустить", "kill -9 вручную?")
+        time.sleep(2)
     else:
-        parser.error("Either --panel or all manual options (--panel-ip, --inbound-id, etc.) must be provided")
+        step_warn(4, "SSH пароль неизвестен", "добавь клиента вручную через панель")
+        print(f"    {c(DIM, 'Панель:')}  {c(CYAN, panel['url'])}")
+        print(f"    {c(DIM, 'Inbound:')} {c(YELLOW, target_inbound)}")
+        print(f"    {c(DIM, 'Email:')}   {c(YELLOW, email)}")
+        print(f"    {c(DIM, 'UUID:')}    {c(YELLOW, new_uuid)}")
 
-    # Run async function
-    key = asyncio.run(create_key(args.router, panel_config, args.email, args.dry_run))
+    # ── STEP 5: Build and check ─────────────────────────────────────────────
+    label = f"{router_name}_{label_suffix}"
+    vless_url = build_vless_url(new_uuid, relay_ip, relay_port, pbk, sid, sni, label)
 
-    if key:
-        print(f"\n🔑 VLESS KEY:")
-        print(key)
-        print(f"\n✅ Key ready for router: {args.router}")
-        return 0
+    step_done(5, "VLESS URL собран", c(DIM, "готов к проверке"))
+
+    step_wait(5, "Проверка ключа...")
+    check_out = check_key(vless_url)
+    step_clear()
+
+    # Parse check result
+    if '● READY' in check_out:
+        step_done(5, "Проверка пройдена", c(GREEN, "● READY ✓✓✓"))
+    elif '✗ BROKEN' in check_out:
+        step_fail(5, "Проверка не пройдена", c(RED, "✗ BROKEN"))
     else:
-        print(f"\n❌ Failed to create key")
-        return 1
+        step_warn(5, "Проверка: не удалось определить статус", "смотри вывод ниже")
 
+    # ── STEP 6: Save ────────────────────────────────────────────────────────
+    save_to_catalog(router_name, city, country, scheme_type, vless_url, label, scheme)
+    step_done(6, "Сохранено в каталог", c(DIM, CATALOG_FILE))
 
-if __name__ == "__main__":
-    sys.exit(main())
+    # ── RESULT CARD ─────────────────────────────────────────────────────────
+    print()
+    print(box_top("РЕЗУЛЬТАТ"))
+    print(box_empty())
+
+    # Progress bar
+    if '● READY' in check_out:
+        print(box_row(f"  {progress_bar(100)}  {c(GREEN, '● READY')}"))
+    elif '✗ BROKEN' in check_out:
+        print(box_row(f"  {progress_bar(50)}  {c(RED, '✗ BROKEN')}"))
+    else:
+        print(box_row(f"  {progress_bar(75)}  {c(YELLOW, '⚠ CHECK')}"))
+
+    print(box_empty())
+    print(box_sep())
+    print(box_empty())
+
+    # Key info
+    print(box_row(f"  {c(DIM, 'Роутер:')}  {c(BOLD+WHITE, router_name)}"))
+    print(box_row(f"  {c(DIM, 'Схема:')}   {c(CYAN, city.upper())} → {flag} {c(YELLOW, country.upper())}"))
+    print(box_row(f"  {c(DIM, 'Relay:')}   {c(CYAN, f'{relay_ip}:{relay_port}')}"))
+    print(box_row(f"  {c(DIM, 'Email:')}   {c(YELLOW, email)}"))
+    print(box_row(f"  {c(DIM, 'UUID:')}    {c(DIM, new_uuid)}"))
+    print(box_empty())
+    print(box_sep())
+    print(box_empty())
+
+    # VLESS URL
+    print(box_row(f"  {c(BOLD, 'VLESS URL:')}"))
+    print(box_empty())
+    # Split long URL
+    if len(vless_url) > W - 6:
+        print(box_row(f"  {c(DIM, vless_url[:W-8])}"))
+        print(box_row(f"  {c(DIM, vless_url[W-8:])}"))
+    else:
+        print(box_row(f"  {c(GREEN, vless_url)}"))
+    print(box_empty())
+    print(box_bot())
+    print()
+
+    # ── FINAL VERDICT ───────────────────────────────────────────────────────
+    if '● READY' in check_out:
+        print(f"  {c(BOLD+GREEN, '┌──────────────────────────────────────────────┐')}")
+        print(f"  {c(BOLD+GREEN, '│')}  {c(BOLD+WHITE, '✅  КЛЮЧ РАБОЧИЙ — можно ставить на роутер')}  {c(BOLD+GREEN, '│')}")
+        print(f"  {c(BOLD+GREEN, '└──────────────────────────────────────────────┘')}")
+        print()
+        print(f"  {c(DIM, 'Скопируй строку ниже в uci set podkop.main.proxy_string:')}")
+        print(f"  {c(BOLD, '────────────────────────────────────────────────────')}")
+        print(f"  {c(GREEN, vless_url)}")
+        print(f"  {c(BOLD, '────────────────────────────────────────────────────')}")
+    else:
+        print(f"  {c(BOLD+YELLOW, '┌──────────────────────────────────────────────┐')}")
+        print(f"  {c(BOLD+YELLOW, '│')}  {c(YELLOW, '⚠️  КЛЮЧ НЕ ПРОШЁЛ ПРОВЕРКУ')}              {c(BOLD+YELLOW, '│')}")
+        print(f"  {c(BOLD+YELLOW, '│')}  {c(DIM, 'Проверь вручную через check_vless.py')}     {c(BOLD+YELLOW, '│')}")
+        print(f"  {c(BOLD+YELLOW, '└──────────────────────────────────────────────┘')}")
+        print()
+        print(f"  {c(DIM, vless_url)}")
+
+    # Show check_vless output if not READY
+    if '● READY' not in check_out:
+        print()
+        print(f"  {c(DIM, 'Вывод check_vless:')}")
+        for line in check_out.split('\n'):
+            print(f"  {c(DIM, line)}")
+
+if __name__ == '__main__':
+    main()

@@ -40,11 +40,13 @@
 | 27 | **H07** | **100.65.174.64** | **—** | **25.12.0** | **10.05.2026** | **route-watchdog отсутствовал, интервалы watchdog разные (3/5 мин), tailscale0 без br-lan** | **Rescue-скрипт: все watchdog'ы */2, route-watchdog добавлен, enable_output=1** | **✅** |
 | 28 | **Z56-124** | **100.69.17.14** | **—** | **25.12.0** | **10.05.2026** | **FakeIP маршрут MISSING, tailscale0 не в LAN, rc.local.bak нет, route/podkop watchdog'ы нет, GitHub CDN заблокирован МТС** | **Rescue + листовой скрипт (108/109 CDN) + fw4-fix локально: 919 subnets в mangle_forward** | **✅** |
 | 29 | **60-usolt-dom** | **100.127.249.15** | **—** | **—** | **10.05.2026** | **Чужой ключ M56-09_CZ2 стоял на роутере; fw4-fix, watchdog'ы, листовой скрипт** | **Rescue + fw4-fix + листовой скрипт + новый ключ 60-usolt-dom_CZ2_rout_8448 (inbound 18)** | **✅** |
-| 31 | **VasyaOnline_DY** | **100.72.74.78** | **—** | **0.4.6** | **10.05.2026** | **fw_mode=nftables, rc.local пустой (без tailscaled), нет ts-watchdog, exclude_ntp=0** | **fw_mode=none, rc.local с tailscaled userspace, ts-watchdog, crontab 4 агента** | **⚠️ ЗАВТРА: переустановка podkop 0.7.x + новый ключ CZ2:8448 (inbound 18) relay** |
-| 30 | **M56-13 (m56-13-alexey-bamboo)** | **100.76.253.51** | **M3000** | **—** | **10.05.2026** | **Чужой ключ TR56-09_italy в main+bamboo; FakeIP MISSING; нет podkop/route-watchdog; tailscale0 не в LAN; crontab кривой** | **Новый ключ M56-13_italy (Italy ID=2) в оба профиля; FakeIP+watchdogs+crontab; enable_output=1; accept-dns=false** | **✅** |
+| 30 | **VasyaOnline_DY** | **100.72.74.78** | **—** | **0.4.6** | **10.05.2026** | **fw_mode=nftables, rc.local пустой (без tailscaled), нет ts-watchdog, exclude_ntp=0** | **fw_mode=none, rc.local с tailscaled userspace, ts-watchdog, crontab 4 агента** | **⚠️ ЗАВТРА: переустановка podkop 0.7.x + новый ключ CZ2:8448 (inbound 18) relay** |
+| 31 | **M56-13 (m56-13-alexey-bamboo)** | **100.76.253.51** | **M3000** | **—** | **10.05.2026** | **Чужой ключ TR56-09_italy в main+bamboo; FakeIP MISSING; нет podkop/route-watchdog; tailscale0 не в LAN; crontab кривой** | **Новый ключ M56-13_italy (Italy ID=2) в оба профиля; FakeIP+watchdogs+crontab; enable_output=1; accept-dns=false** | **✅** |
 | 32 | **tr56-13** | **100.124.148.3** | **Cudy TR3000 v1** | **25.12.0** | **10.05.2026** | **Диагностика + fw4-fix: podkop-watchdog, route-watchdog, WAN firewall fix, crontab обновлён** | **podkop-watchdog, route-watchdog, fw4-fix скрипт + хук в firewall.user, crontab 4 watchdog'а** | **✅** |
 | 33 | **zakhar16** | **100.108.52.26** | **Xiaomi AX3000T** | **25.12.2** | **11.05.2026** | **Tailscale Logged out, fw4-fix отсутствовал, rc.local без timeout** | **fix-tailscale-openwrt.sh v3.1 + fw4-fix + timeout в rc.local** | **✅** |
 | 34 | **tr30-05-serebritsa** | **100.69.174.52** | **TR3005** | **25.12.0** | **11.05.2026** | **rc.local sleep 40, ts-watchdog старый, direct_domains нет, fw4-fix нет, open files 4096** | **direct_domains, ts-watchdog v3.1, rc.local без sleep, fw4-fix, open files 65536** | **✅** |
+| 35 | **S78-08** | **100.68.180.102** | **Cudy WR3000S v1** | **24.10.5** | **11.05.2026** | **Прокси не работал, 8/10 сайтов 000, fw4-fix нет, direct_domains пусто, rc.local старый, ts-watchdog старый** | **fw4-fix, direct_domains, rc.local новый, ts-watchdog v3.1, podkop-fix-lists, списки обновлены** | **✅** |
+| 36 | **100.92.58.69** | **100.92.58.69** | **Cudy WR3000S v1** | **24.10.5** | **11.05.2026** | **fw4-fix отсутствовал, rc.local без timeout, ulimit 1024** | **fw4-fix, rc.local (timeout YES, ulimit), спасительный скрипт** | **✅** |
 ---
 
 ## Подробно по каждому роутеру
@@ -214,6 +216,23 @@
 - **Результат:** ✅ 21 список, sing-box running, YouTube 301, Telegram 200, Cloudflare trace CZ
 - **Урок:** информация в `ROUTERS_REPAIRED_BASE.md`
 
+### 35. S78-08 (11.05.2026)
+- **IP:** 100.68.180.102
+- **Модель:** Cudy WR3000S v1, OpenWrt 24.10.5
+- **Провайдер:** SkyNet Ltd. (СПб), WAN IP 188.243.183.22
+- **Учётка:** ne78va@ (s78-08-nastya-sam)
+- **Проблема:** Прокси не работал (loc=пусто), 8/10 сайтов 000, fw4-fix не установлен, direct_domains пусто, rc.local старый (sleep 40), ts-watchdog старый (Apr 22)
+- **Решение:** fw4-fix установлен (4 правила), direct_domains добавлены (tailscale.com, controlplane, login), rc.local новый (без sleep 40), ts-watchdog v3.1, podkop-fix-lists, списки обновлены (20 шт)
+- **Результат:** ✅ Прокси loc=CZ, youtube 301, telegram 200, github 200
+
+### 36. 100.92.58.69 (11.05.2026)
+- **IP:** 100.92.58.69
+- **Модель:** Cudy WR3000S v1, OpenWrt 24.10.5
+- **Провайдер:** МГТС (Москва)
+- **Проблема:** fw4-fix отсутствовал, rc.local без timeout, ulimit 1024
+- **Решение:** fw4-fix, rc.local (timeout YES, ulimit), спасительный скрипт
+- **Результат:** ✅ Прокси loc=CZ, youtube 301, telegram 200, github 200
+
 ### 25. M78-03 (Вера Гришина, 09.05.2026)
 - **IP:** 100.100.82.6
 - **OpenWrt:** 24.10 (M78)
@@ -287,20 +306,4 @@
 | **100.100.82.6** | **M78-03 (Вера Гришина)** | **09.05.2026** |
 | **100.89.171.119** | **M78-11** | **09.05.2026** |
 | **100.65.174.64** | **H07** | **10.05.2026** |
-| **100.69.17.14** | **Z56-124** | **10.05.2026** |
-| **100.127.249.15** | **60-usolt-dom** | **10.05.2026** |
-| **100.76.253.51** | **M56-13 (m56-13-alexey-bamboo)** | **10.05.2026** |
-| **100.72.74.78** | **VasyaOnline_DY** | **10.05.2026** |
-### Пароль для всех роутеров
-`56756789`
-
----
-
-## Связанные базы
-
-- **`ROUTERS_GROOMED_BASE.md`** — база причёсанных роутеров (groom-routers)
-- **`ROUTERS_REPAIRED_BASE.md`** — база отремонтированных роутеров (этот файл)
-
----
-
-*Создано: 09.05.2026 | Обновлять после каждого нового ремонта*
+| **100.69.17.14** | **Z56

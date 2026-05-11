@@ -54,3 +54,4 @@ Before ANY router/server task — mandatory sequence:
 | "причеши подкоп", "groom podkop", "оставить только main" | `skills/groom-podkop/SKILL.md` |
 | "покажи полный отчёт по роутеру", "полный отчёт", "full report", "диагностика роутера полная" | `skills/router-full-report/SKILL.md` |
 | "созови консилиум", "consilium", "созвать консилиум", "нужен консилиум" | `skills/consilium/SKILL.md` |
+| "создать ключ", "новый ключ VLESS", "сделай ключ для роутера", "ключ-клон", "нужен ключ на" | `skills/create_vless_key/SKILL.md` |

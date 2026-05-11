@@ -36,12 +36,19 @@ def ansi_len(s): return len(re.sub(r'\033\[[^m]*m', '', s))
 W = 60  # box inner width
 
 # ── Known X-UI servers: pbk → (name, ssh_ip, ssh_pass) ───────────────────────
+# Source: ключи/RELAY_REFERENCE.json
 XUI_SERVERS = {
-    'XJC_sc4MP6pFj2FNNGUu93SEoI6sKww2sCsh5prWWRw': ('Fin3', '144.31.66.115',   'Ujkjdf56'),
-    'me9yoc9is4ZouFPS7e_TBjuBvyc8HZz6PCEogODIjSM': ('bSPB', '5.35.84.151',     None),
-    'HfbTqAITJraOSM3J-yHpedrv-lKKe41IkU5m-4yPbHI': ('Fin4', '45.155.55.198',   'duqwgjXiT4FRrc'),
-    'g5eg_BKQJLVbPxryppyE0AGpQB_HKHPGkOJN9I6bSzI': ('bMSK', '159.194.198.172', 'Ujkjdf56#'),
-    '4TCLYNy_kglu_bpE5n3Gx0yQ7L8TJQKRLATLgnXbtEw': ('PL5',  '91.92.46.229',    '6pI3gBvJtVxjea'),
+    'XJC_sc4MP6pFj2FNNGUu93SEoI6sKww2sCsh5prWWRw': ('Fin3', '144.31.66.115',     'Ujkjdf56'),
+    'me9yoc9is4ZouFPS7e_TBjuBvyc8HZz6PCEogODIjSM': ('bSPB', '5.35.84.151',       None),
+    'HfbTqAITJraOSM3J-yHpedrv-lKKe41IkU5m-4yPbHI': ('Fin4', '45.155.55.198',     'duqwgjXiT4FRrc'),
+    'g5eg_BKQJLVbPxryppyE0AGpQB_HKHPGkOJN9I6bSzI': ('bMSK', '159.194.198.172',   'Ujkjdf56#'),
+    '4TCLYNy_kglu_bpE5n3Gx0yQ7L8TJQKRLATLgnXbtEw': ('PL5',  '91.92.46.229',      '6pI3gBvJtVxjea'),
+    'Ef6WCkwNoSXIRWamiaU8j-icLatwufKolHUF1R8G3gs': ('CZ3',  'cz3.theredhat.su',  None),
+    'OBa4LZ0lL0j9RS52fgCw68jWqkvr_yakmpsolbiqgVI': ('Italy', '151.243.198.86',   'Ujkjdf56'),
+    'cCXxseSlh1Hm2WpQLAeSApZk4rtu0a7QJ5G2dtfYYUA': ('bSPB', '5.35.84.151',       None),
+    'qPBatdDltcdmZxQ6Rz5uyuUXPqte22_PdSqbwk9KTFA': ('bMSK', '159.194.198.172',   'Ujkjdf56#'),
+    'n2Ha1A1TGluAGjWSS7TvKk2RyMKhzDUU+w0rrkrbCic=': ('bMSK', '159.194.198.172',  'Ujkjdf56#'),
+    'QKPZitEi4nYrAUo_1SqK4lagqkg9RCI89ZCtFey8CUI': ('bMSK', '159.194.198.172',   'Ujkjdf56#'),
 }
 
 # ── Box helpers ────────────────────────────────────────────────────────────────

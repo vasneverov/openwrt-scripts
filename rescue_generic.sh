@@ -15,7 +15,7 @@ echo "╚═══════════════════════�
 echo ""
 
 # ===== 1. Tailscale fw_mode = none =====
-echo "[1/9] Tailscale fw_mode → none"
+echo "[1/10] Tailscale fw_mode → none"
 CURRENT_FW=$(uci get tailscale.settings.fw_mode 2>/dev/null)
 if [ "$CURRENT_FW" != "none" ]; then
     uci set tailscale.settings.fw_mode='none'
@@ -26,7 +26,7 @@ else
 fi
 
 # ===== 2. init.d/tailscale DISABLED =====
-echo "[2/9] init.d/tailscale → DISABLED"
+echo "[2/10] init.d/tailscale → DISABLED"
 if /etc/init.d/tailscale enabled 2>/dev/null; then
     /etc/init.d/tailscale disable
     echo "  ✓ init.d/tailscale disabled"
@@ -35,7 +35,7 @@ else
 fi
 
 # ===== 3. WAN ifname (podkop использует ifname, а не device) =====
-echo "[3/9] WAN ifname → проверка"
+echo "[3/10] WAN ifname → проверка"
 WAN_IFNAME=$(uci get network.wan.ifname 2>/dev/null)
 if [ -z "$WAN_IFNAME" ]; then
     WAN_DEVICE=$(uci get network.wan.device 2>/dev/null)
@@ -50,8 +50,43 @@ else
     echo "  ✓ network.wan.ifname=$WAN_IFNAME (уже есть)"
 fi
 
-# ===== 4. exclude_ntp = 1 + enable_output_network_interface = 1 + direct_domains =====
-echo "[4/9] Podkop exclude_ntp → 1"
+# ===== 4. ulimit + sysctl лимиты =====
+echo "[4/10] ulimit + sysctl → увеличение лимитов"
+
+# 4a. ulimit -n 65535 в /etc/init.d/podkop
+if [ -f /etc/init.d/podkop ]; then
+    if grep -q "ulimit -n" /etc/init.d/podkop; then
+        echo "  ✓ ulimit уже есть в podkop init.d"
+    else
+        sed -i '2i ulimit -n 65535' /etc/init.d/podkop
+        echo "  ✓ ulimit -n 65535 добавлен в /etc/init.d/podkop"
+    fi
+fi
+
+# 4b. ulimit -n 65535 в /etc/init.d/sing-box
+if [ -f /etc/init.d/sing-box ]; then
+    if grep -q "ulimit -n" /etc/init.d/sing-box; then
+        echo "  ✓ ulimit уже есть в sing-box init.d"
+    else
+        sed -i '2i ulimit -n 65535' /etc/init.d/sing-box
+        echo "  ✓ ulimit -n 65535 добавлен в /etc/init.d/sing-box"
+    fi
+fi
+
+# 4c. sysctl fs.file-max
+CURRENT_FM=$(sysctl -n fs.file-max 2>/dev/null)
+if [ "$CURRENT_FM" -lt 65536 ] 2>/dev/null; then
+    sysctl -w fs.file-max=65536 >/dev/null 2>&1
+    if ! grep -q "fs.file-max" /etc/sysctl.conf 2>/dev/null; then
+        echo "fs.file-max = 65536" >> /etc/sysctl.conf
+    fi
+    echo "  ✓ fs.file-max: $CURRENT_FM → 65536"
+else
+    echo "  ✓ fs.file-max уже $CURRENT_FM"
+fi
+
+# ===== 5. exclude_ntp = 1 + enable_output_network_interface = 1 + direct_domains =====
+echo "[5/10] Podkop exclude_ntp → 1"
 CURRENT_NTP=$(uci get podkop.settings.exclude_ntp 2>/dev/null)
 if [ "$CURRENT_NTP" != "1" ]; then
     uci set podkop.settings.exclude_ntp='1'
@@ -81,8 +116,8 @@ done
 
 uci commit podkop
 
-# ===== 5. rc.local — минимальный + watchdog в фоне =====
-echo "[5/9] rc.local → проверка/создание"
+# ===== 6. rc.local — минимальный + watchdog в фоне =====
+echo "[6/10] rc.local → проверка/создание"
 if [ -f /etc/rc.local ] && grep -q "ts-watchdog.sh &" /etc/rc.local 2>/dev/null; then
     echo "  ✓ rc.local уже новый (минимальный + watchdog в фоне)"
 else
@@ -108,10 +143,10 @@ EOF
 fi
 
 
-# ===== 6. firewall → tailscale0 в LAN зону =====
+# ===== 7. firewall → tailscale0 в LAN зону =====
 # ВАЖНО: НЕ перезагружаем firewall! fw4 (nftables) сбросит правила Tailscale.
 # Просто сохраняем конфиг — tailscale0 добавится при следующей перезагрузке.
-echo "[6/9] firewall → tailscale0 в LAN зону"
+echo "[7/10] firewall → tailscale0 в LAN зону"
 CURRENT_DEV=$(uci get firewall.@zone[0].device 2>/dev/null)
 if echo "$CURRENT_DEV" | grep -q "tailscale0"; then
     echo "  ✓ tailscale0 уже в LAN зоне"
@@ -121,10 +156,10 @@ else
     echo "  ✓ tailscale0 добавлен в LAN зону (конфиг сохранён, firewall НЕ перезагружен)"
 fi
 
-# ===== 7. Три watchdog'а на 2 минуты =====
-echo "[7/9] Watchdog'ы (3 шт, каждая 2 мин)..."
+# ===== 8. Три watchdog'а на 2 минуты =====
+echo "[8/10] Watchdog'ы (3 шт, каждая 2 мин)..."
 
-# 5a. Tailscale watchdog v3.1 — единый, с lock-файлом + NoState fix
+# 8a. Tailscale watchdog v3.1 — единый, с lock-файлом + NoState fix
 cat > /etc/ts-watchdog.sh << 'WEOF'
 #!/bin/sh
 
@@ -214,8 +249,7 @@ WEOF
 chmod +x /etc/ts-watchdog.sh
 echo "  ✓ ts-watchdog.sh v3.1 (NoState fix + lock-файл)"
 
-
-# 5b. Podkop watchdog
+# 8b. Podkop watchdog
 cat > /etc/podkop-watchdog.sh << 'WEOF'
 #!/bin/sh
 if ! ps | grep -q "sing-box run"; then
@@ -226,7 +260,7 @@ WEOF
 chmod +x /etc/podkop-watchdog.sh
 echo "  ✓ podkop-watchdog.sh"
 
-# 5c. Route watchdog
+# 8c. Route watchdog
 cat > /etc/route-watchdog.sh << 'WEOF'
 #!/bin/sh
 nft list table inet PodkopTable >/dev/null 2>&1 || {
@@ -237,8 +271,8 @@ WEOF
 chmod +x /etc/route-watchdog.sh
 echo "  ✓ route-watchdog.sh"
 
-# ===== 8. Crontab =====
-echo "[8/9] Crontab → 3 watchdog'а + обновление списков"
+# ===== 9. Crontab =====
+echo "[9/10] Crontab → 3 watchdog'а + обновление списков"
 (
     crontab -l 2>/dev/null | grep -v -E "(ts-watchdog|podkop-watchdog|route-watchdog|list_update)"
     echo "*/2 * * * * /etc/ts-watchdog.sh"
@@ -248,8 +282,8 @@ echo "[8/9] Crontab → 3 watchdog'а + обновление списков"
 ) | crontab -
 echo "  ✓ crontab обновлён"
 
-# ===== 9. check-ip скрипт диагностики =====
-echo "[9/9] check-ip → скрипт диагностики"
+# ===== 10. check-ip скрипт диагностики =====
+echo "[10/10] check-ip → скрипт диагностики"
 cat > /usr/bin/check-ip << 'CIPEOF'
 #!/bin/sh
 echo '╔══════════════════════════════════════════════╗'

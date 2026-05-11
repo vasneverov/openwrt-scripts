@@ -1,7 +1,0 @@
-# TR30-15 YT прямой через bSPB
-# Port 8853 direct
-# Created: 2026-05-05
-# UUID: e26e6207-da91-4ac8-aef9-640290259f4c
-# Status: ● READY
-
-vless://e26e6207-da91-4ac8-aef9-640290259f4c@5.35.84.151:8853?type=grpc&security=reality&mode=gun&serviceName=&pbk=me9yoc9is4ZouFPS7e_TBjuBvyc8HZz6PCEogODIjSM&sid=ddcb53b3&sni=www.apple.com&fp=chrome&spx=%2F#TR30-15_YT_bSPB
