@@ -29,10 +29,12 @@
 - `fw_mode=none` — иначе Tailscale убивает маршрутизацию
 - `init.d tailscale DISABLED` — иначе при ребуте Tailscale стартует раньше сети
 - `exclude_ntp=1` — иначе NTP ломает синхронизацию
-- `rc.local` с tailscaled (sleep 40 для WR3000H/TR3000, sleep 25 для M3000)
-- Watchdog в crontab (каждые 2-3 минуты проверяет tailscaled)
+- `rc.local` с tailscaled (минимальный: tailscaled + tailscale up + watchdog в фоне)
+- Watchdog ts-watchdog v3.1 в crontab (каждые 2 минуты, с lock-файлом, NoState fix)
 - `autoupdate=false` — никогда не обновляться автоматически
-- **Перед любой перезагрузкой роутера проверить все 5 пунктов выше**
+- **Установка:** через gunano скрипт `sh -c "$(wget -O- https://raw.githubusercontent.com/GuNanOvO/openwrt-tailscale/main/install_en.sh)" --persistentinstall`
+- **Первая авторизация:** pre-auth key + `tailscale serve --bg --tcp 80 tcp://localhost:80` (serve anchor фиксирует long-poll). После зелёной точки — `tailscale serve --tcp=80 off`
+- **Перед любой перезагрузкой роутера проверить все пункты выше**
 
 ### 1.2. Сначала диагностика, потом план, потом лечение
 - **НИКОГДА** не начинать лечение без полной диагностики
@@ -577,7 +579,82 @@ sshpass -p '<PASS>' scp -O ~/CLAUDECODE/openwrt-apk-packages/podkop-0.7.14-r1.ap
 | **s78-40** | 100.118.37.35 | WR3000S | 24.x | 56756789 | bMSK→PL6 (Main) |
 | **s78-44** | 100.85.102.22 | WR3000S | 24.x | ne78va | bSPB (Main) |
 
-### 11.2. Типовые конфигурации
+### 11.2. Tailscale — диагностика и стабильность
+
+#### Почему Tailscale может терять соединение после ребута
+
+**Корень:** `tailscale up --reset` в rc.local не успевает завершиться до того как watchdog проверяет состояние. Tailscale стартует, но DERP-соединение не успевает установиться → точка серая → watchdog перезапускает → всё чинится.
+
+**Важно:** userspace-networking (`"TUN": false`) — это НОРМАЛЬНО для OpenWrt 25.12.0. tailscale0 интерфейс НЕ создаётся в userspace-режиме. Все прошитые роутеры работают в userspace-networking.
+
+#### Что должно быть на каждом роутере
+
+1. **rc.local** с правильным порядком:
+   ```sh
+   tailscaled --statedir=/etc/tailscale/ --tun=userspace-networking >> /tmp/ts.log 2>&1 &
+   sleep 3
+   tailscale up --reset --accept-dns=false --accept-routes --netfilter-mode=off &
+   /etc/ts-watchdog.sh &
+   ip route add 198.18.0.0/15 dev lo 2>/dev/null
+   ```
+   - `tailscaled` стартует ПЕРВЫМ
+   - `sleep 3` — дать tailscaled время инициализироваться
+   - `--reset` — чистая авторизация (сбрасывает кеш)
+   - `--netfilter-mode=off` — не трогать iptables
+   - `ip route add 198.18.0.0/15 dev lo` — FakeIP route для DNS
+
+2. **ts-watchdog** с 3 проверками:
+   - CHECK 1: tailscaled running
+   - CHECK 2: NoState fix (полный перезапуск tailscaled)
+   - CHECK 3: DERP connection (tailscale up если нет IP)
+
+3. **init.d tailscale DISABLED**: `service tailscale disable`
+
+4. **enable_udp_over_tcp**: по умолчанию включён (не менять)
+
+#### Диагностика Tailscale
+
+```sh
+# 1. Статус
+tailscale status
+
+# 2. JSON статус (TUN, BackendState)
+tailscale status --json | grep -E '"TUN"|"BackendState"|"Version"'
+
+# 3. DERP соединения
+tailscale netcheck
+
+# 4. Логи tailscaled
+cat /tmp/ts.log | grep -i 'health\|derp\|error\|fail\|lost'
+
+# 5. Проверка tailscale0 интерфейса
+ip addr show tailscale0 2>/dev/null | grep 'inet '
+
+# 6. FakeIP route
+ip route show 198.18.0.0/15
+
+# 7. rc.local
+cat /etc/rc.local
+
+# 8. ts-watchdog
+cat /etc/ts-watchdog.sh
+```
+
+#### Тест холодной перезагрузки
+
+| Этап | Ожидаемое время |
+|------|----------------|
+| Питание отключено | — |
+| Питание подано | T+0 |
+| LAN появился | +14с |
+| Tailscale в сети | +35с |
+| Интернет работает | +35с |
+| Ping до tr-boss-00 | +35с (direct, 1-3ms) |
+
+После ребута — 4-минутный мониторинг: 8/8 зелёных, 0 сбоев.
+
+---
+
+### 11.3. Типовые конфигурации
 
 **Стандартная (bMSK→PL6):**
-- Main: `vless://UUID@159

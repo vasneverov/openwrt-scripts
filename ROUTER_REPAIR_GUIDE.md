@@ -514,6 +514,30 @@ uci get podkop.settings.community_lists
 ### 11. itdog скрипт добавляет russia_inside — не забыть удалить
 **Правило:** после установки через itdog install.sh сразу проверить `uci get podkop.settings.community_lists`. Если есть `russia_inside` — удалить: `uci del_list podkop.settings.community_lists='russia_inside'`. Оставить только нужные списки с telegram и meta первыми.
 
+### 12. Tailscale теряет соединение после холодной перезагрузки
+**Симптом:** После снятия/подачи питания Tailscale поднимается (+35с), точка зелёная, через ~1 минуту становится серой. Watchdog восстанавливает через ~2 минуты.
+
+**Корень:** `tailscale up --reset` в rc.local не успевает завершиться до того как watchdog проверяет состояние. DERP-соединение не успевает установиться → точка серая → watchdog перезапускает → чинится.
+
+**Важно:** userspace-networking (`"TUN": false`) — это НОРМАЛЬНО для OpenWrt 25.12.0. tailscale0 интерфейс НЕ создаётся в userspace-режиме. Все прошитые роутеры работают в userspace-networking. Проблема НЕ в userspace-networking.
+
+**Правило:** На каждом роутере должно быть:
+1. **rc.local** с правильным порядком: `tailscaled` → `sleep 3` → `tailscale up --reset --netfilter-mode=off` → `ts-watchdog` → `ip route add 198.18.0.0/15 dev lo`
+2. **ts-watchdog** с 3 проверками: tailscaled running, NoState fix (полный перезапуск tailscaled), DERP connection
+3. **init.d tailscale DISABLED**: `service tailscale disable`
+4. **enable_udp_over_tcp**: по умолчанию включён (не менять)
+
+**Диагностика:**
+```sh
+tailscale status --json | grep -E '"TUN"|"BackendState"|"Version"'
+cat /tmp/ts.log | grep -i 'health\|derp\|error\|fail\|lost'
+ip route show 198.18.0.0/15
+cat /etc/rc.local
+cat /etc/ts-watchdog.sh
+```
+
+**Тест холодной перезагрузки:** LAN +14с, Tailscale +35с, Интернет +35с. 4-минутный мониторинг: 8/8 зелёных, 0 сбоев.
+
 ---
 
 ## Справочник паролей SSH (быстрый доступ)

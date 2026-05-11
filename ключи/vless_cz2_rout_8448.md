@@ -1,5 +1,12 @@
 # vless ссылки для роутеров — CZ2 порт 8448
 
+## 60-usolt-dom (2026-05-10)
+```
+vless://134191CE-7C32-444B-AD21-A54FC1D4E9EC@5.35.84.151:8448?type=grpc&security=reality&mode=gun&serviceName=&pbk=FyCxYT4Ku_RyR7r2dZYofYxcAOm5xJtgP-T_xjgVnCQ&sid=dcaa&sni=www.apple.com&fp=chrome&spx=%2F#60-usolt-dom_CZ2_rout_8448
+```
+- inbound ID=18, CZ2 92.61.71.14:8448 → relay 5.35.84.151:8448
+- профиль: Main (youtube внутри main)
+
 Сервер: CZ2 (92.61.71.14) · Инбаунд: CZ2_rout_8448 (ID=18)
 Relay: 5.35.84.151:8448 → 92.61.71.14:8448
 SNI: www.apple.com · Трафик: 1000 GB · Срок: 26.03.2027

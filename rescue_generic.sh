@@ -70,27 +70,32 @@ else
 fi
 uci commit podkop
 
-# ===== 5. rc.local с tailscaled =====
+# ===== 5. rc.local — минимальный + watchdog в фоне =====
 echo "[5/9] rc.local → проверка/создание"
-if [ -f /etc/rc.local ] && grep -q "tailscaled" /etc/rc.local 2>/dev/null; then
-    echo "  ✓ rc.local уже содержит tailscaled"
+if [ -f /etc/rc.local ] && grep -q "ts-watchdog.sh &" /etc/rc.local 2>/dev/null; then
+    echo "  ✓ rc.local уже новый (минимальный + watchdog в фоне)"
 else
-    # Сохраняем бэкап если есть
     [ -f /etc/rc.local ] && cp /etc/rc.local /etc/rc.local.bak 2>/dev/null
     
     cat > /etc/rc.local << 'EOF'
 #!/bin/sh
-(sleep 40
-tailscaled --state=/etc/tailscale/tailscaled.state --tun=userspace-networking --statedir=/etc/tailscale/ >> /tmp/ts.log 2>&1 &
-sleep 5
-tailscale up --accept-dns=false --accept-routes
-sleep 10
-logger -t rc.local 'tailscale up applied') &
+
+# === TAILSCALE STARTUP ===
+tailscaled --statedir=/etc/tailscale/ --tun=userspace-networking >> /tmp/ts.log 2>&1 &
+sleep 3
+tailscale up --accept-dns=false --accept-routes &
+
+# === WATCHDOG В ФОНЕ ===
+# Ждёт tailscale до 120 сек, перезапускает если упал
+/etc/ts-watchdog.sh &
+
+logger -t rc.local 'rc.local complete'
 exit 0
 EOF
     chmod +x /etc/rc.local
-    echo "  ✓ rc.local создан"
+    echo "  ✓ rc.local создан (минимальный + watchdog в фоне)"
 fi
+
 
 # ===== 6. firewall → tailscale0 в LAN зону =====
 # ВАЖНО: НЕ перезагружаем firewall! fw4 (nftables) сбросит правила Tailscale.
@@ -108,20 +113,96 @@ fi
 # ===== 7. Три watchdog'а на 2 минуты =====
 echo "[7/9] Watchdog'ы (3 шт, каждая 2 мин)..."
 
-# 5a. Tailscale watchdog
+# 5a. Tailscale watchdog v3.1 — единый, с lock-файлом + NoState fix
 cat > /etc/ts-watchdog.sh << 'WEOF'
 #!/bin/sh
-RC_BACKUP="/etc/rc.local.bak"
-if [ ! -f "$RC_BACKUP" ]; then exit 1; fi
-if ! grep -q "tailscaled" /etc/rc.local 2>/dev/null; then
-    cp "$RC_BACKUP" /etc/rc.local
+
+# === ts-watchdog v3.1 ===
+# Единый watchdog: работает и из rc.local, и из крона
+# Lock-файл: не запускается дважды
+# Не убивает tailscale если он уже онлайн
+# NoState fix: если tailscale status выдаёт NoState — killall tailscaled + запуск заново
+
+LOCKFILE=/tmp/ts-watchdog.lock
+
+# Lock-файл: если уже запущен — выходим
+if [ -f "$LOCKFILE" ]; then
+    LOCKPID=$(cat "$LOCKFILE" 2>/dev/null)
+    if kill -0 "$LOCKPID" 2>/dev/null; then
+        exit 0
+    fi
 fi
+echo $$ > "$LOCKFILE"
+
+# 1. Проверка tailscaled процесс
 if ! ps | grep -q "tailscaled --state="; then
-    (sleep 5; tailscaled --state=/etc/tailscale/tailscaled.state --tun=userspace-networking --statedir=/etc/tailscale/ >> /tmp/ts.log 2>&1 & sleep 5; tailscale up --accept-dns=false --accept-routes) &
+    logger -t ts-watchdog "tailscaled not running, restarting..."
+    tailscaled --statedir=/etc/tailscale/ --tun=userspace-networking >> /tmp/ts.log 2>&1 &
+    sleep 5
+    tailscale up --accept-dns=false --accept-routes &
+    logger -t ts-watchdog "tailscaled restarted"
+    rm -f "$LOCKFILE"
+    exit 0
 fi
+
+# 2. Проверка что tailscale онлайн
+TS_STATUS=$(tailscale status 2>&1)
+
+# 2a. Если tailscaled в битом состоянии (NoState) — перезапускаем целиком
+if echo "$TS_STATUS" | grep -q "NoState"; then
+    logger -t ts-watchdog "tailscaled in NoState (DERP lost), full restart..."
+    killall tailscale 2>/dev/null
+    sleep 1
+    killall tailscaled 2>/dev/null
+    sleep 2
+    tailscaled --statedir=/etc/tailscale/ --tun=userspace-networking >> /tmp/ts.log 2>&1 &
+    sleep 5
+    date +%s > /tmp/ts-up-start
+    tailscale up --accept-dns=false --accept-routes &
+    logger -t ts-watchdog "tailscaled fully restarted (NoState fix)"
+    rm -f "$LOCKFILE"
+    exit 0
+fi
+
+# 2b. Нормальный онлайн
+if echo "$TS_STATUS" | grep -q '100\.'; then
+    # ✅ Tailscale онлайн — ничего не делаем
+    # Применяем podkop-fw4-fix если нужно
+    if [ -x /root/podkop-fw4-fix.sh ]; then
+        /root/podkop-fw4-fix.sh update 2>/dev/null
+    fi
+    rm -f "$LOCKFILE"
+    exit 0
+fi
+
+# 3. Tailscale НЕ онлайн — пробуем перезапустить
+logger -t ts-watchdog "tailscale not online, reconnecting..."
+
+# Проверяем не висит ли tailscale up
+TS_UP_PID=$(ps | grep "tailscale up" | grep -v grep | awk '{print $1}')
+if [ -n "$TS_UP_PID" ]; then
+    # Если tailscale up висит больше 90 сек — убиваем
+    # 30 сек мало — tailscale up может висеть 40-50 сек при первом запуске
+    if [ -f /tmp/ts-up-start ] && [ $(($(date +%s) - $(cat /tmp/ts-up-start))) -gt 90 ]; then
+        logger -t ts-watchdog "tailscale up stuck (PID $TS_UP_PID), killing..."
+        kill "$TS_UP_PID" 2>/dev/null
+        sleep 2
+        date +%s > /tmp/ts-up-start
+        tailscale up --accept-dns=false --accept-routes &
+        logger -t ts-watchdog "tailscale up restarted"
+    fi
+else
+    # tailscale up не запущен — запускаем
+    date +%s > /tmp/ts-up-start
+    tailscale up --accept-dns=false --accept-routes &
+    logger -t ts-watchdog "tailscale up started"
+fi
+
+rm -f "$LOCKFILE"
 WEOF
 chmod +x /etc/ts-watchdog.sh
-echo "  ✓ ts-watchdog.sh"
+echo "  ✓ ts-watchdog.sh v3.1 (NoState fix + lock-файл)"
+
 
 # 5b. Podkop watchdog
 cat > /etc/podkop-watchdog.sh << 'WEOF'

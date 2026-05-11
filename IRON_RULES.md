@@ -1,5 +1,15 @@
 # ЖЕЛЕЗНЫЕ ПРАВИЛА (IRON RULES)
 
+> **Перед чтением правил — прочитай `.clinerules/karpathy.md` (Karpathy принципы)**
+> **Формат ответа — `.clinerules/caveman.md` (кратко, без воды)**
+> 
+> **Skill lookup:**
+> - "прошиваем роутер" → `skills/flash_router_universal.md`
+> - "диагностика роутера" → `skills/podkop_repair_guide.md`
+> - "создать ключ" → `skills/create_clone_key.md`
+> - "причесать роутеры" → `skills/groom-routers/SKILL.md`
+
+
 ## 1. Tailscale — НЕ ТРОГАТЬ (СВЯЩЕННАЯ КОРОВА)
 - **Никогда** не перезапускать tailscaled (даже killall)
 - **Никогда** не менять tailscale up (даже --reset)
@@ -10,6 +20,8 @@
 - Если точка стала красной/offline — не паниковать, watchdog поднимет сам
 - На разных версиях OpenWrt (24.10, 25.12) и podkop (0.4.x, 0.7.x) — Tailscale везде одинаково хрупкий
 - **Золотое правило: Tailscale работает — не лезь. Tailscale упал — watchdog поднимет, не лезь.**
+- **Критически важно: SSH идёт через Tailscale → убить tailscaled = потерять SSH.** Никогда не убивать tailscaled удалённо. Единственный случай когда можно — физический доступ (провод/консоль).
+- **Если Tailscale серый, но LuCI доступен** — это значит podkop/прокси работает, а Tailscale coordination server недоступен. Не трогать — watchdog поднимет сам. LuCI доступен через локальную сеть (192.168.x.x), не через Tailscale.
 
 ## 2. Podkop — НЕ ПЕРЕЗАПУСКАТЬ вручную
 - Только через watchdog или list_update

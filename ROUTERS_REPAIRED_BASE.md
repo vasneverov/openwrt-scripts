@@ -37,6 +37,12 @@
 | 24 | **TR30-15 (Костянкин)** | **100.91.60.113** | **Cudy TR3000 v1** | **24.10.0** | **09.05.2026** | **WhatsApp/Instagram/Facebook 000** | **21 community_list (добавлены geoblock, block)** | **✅** |
 | 25 | **M78-03 (Вера Гришина)** | **100.100.82.6** | **—** | **24.10 (M78)** | **09.05.2026** | **Calls + YT профили, podkop not running** | **Calls/YT удалены, 20 lists (v0.7.10 без roblox), exclude_ntp, fw_mode** | **✅** |
 | 26 | **M78-11** | **100.89.171.119** | **—** | **—** | **09.05.2026** | **Чужой ключ M56-07 стоял на роутере** | **Создан новый ключ M78-11_CZ2 на CZ2 inbound 18** | **✅** |
+| 27 | **H07** | **100.65.174.64** | **—** | **25.12.0** | **10.05.2026** | **route-watchdog отсутствовал, интервалы watchdog разные (3/5 мин), tailscale0 без br-lan** | **Rescue-скрипт: все watchdog'ы */2, route-watchdog добавлен, enable_output=1** | **✅** |
+| 28 | **Z56-124** | **100.69.17.14** | **—** | **25.12.0** | **10.05.2026** | **FakeIP маршрут MISSING, tailscale0 не в LAN, rc.local.bak нет, route/podkop watchdog'ы нет, GitHub CDN заблокирован МТС** | **Rescue + листовой скрипт (108/109 CDN) + fw4-fix локально: 919 subnets в mangle_forward** | **✅** |
+| 29 | **60-usolt-dom** | **100.127.249.15** | **—** | **—** | **10.05.2026** | **Чужой ключ M56-09_CZ2 стоял на роутере; fw4-fix, watchdog'ы, листовой скрипт** | **Rescue + fw4-fix + листовой скрипт + новый ключ 60-usolt-dom_CZ2_rout_8448 (inbound 18)** | **✅** |
+| 31 | **VasyaOnline_DY** | **100.72.74.78** | **—** | **0.4.6** | **10.05.2026** | **fw_mode=nftables, rc.local пустой (без tailscaled), нет ts-watchdog, exclude_ntp=0** | **fw_mode=none, rc.local с tailscaled userspace, ts-watchdog, crontab 4 агента** | **⚠️ ЗАВТРА: переустановка podkop 0.7.x + новый ключ CZ2:8448 (inbound 18) relay** |
+| 30 | **M56-13 (m56-13-alexey-bamboo)** | **100.76.253.51** | **M3000** | **—** | **10.05.2026** | **Чужой ключ TR56-09_italy в main+bamboo; FakeIP MISSING; нет podkop/route-watchdog; tailscale0 не в LAN; crontab кривой** | **Новый ключ M56-13_italy (Italy ID=2) в оба профиля; FakeIP+watchdogs+crontab; enable_output=1; accept-dns=false** | **✅** |
+| 32 | **tr56-13** | **100.124.148.3** | **Cudy TR3000 v1** | **25.12.0** | **10.05.2026** | **Диагностика + fw4-fix: podkop-watchdog, route-watchdog, WAN firewall fix, crontab обновлён** | **podkop-watchdog, route-watchdog, fw4-fix скрипт + хук в firewall.user, crontab 4 watchdog'а** | **✅** |
 ---
 
 ## Подробно по каждому роутеру
@@ -278,8 +284,20 @@
 | **100.91.60.113** | **TR30-15 (Костянкин)** | **09.05.2026** |
 | **100.100.82.6** | **M78-03 (Вера Гришина)** | **09.05.2026** |
 | **100.89.171.119** | **M78-11** | **09.05.2026** |
+| **100.65.174.64** | **H07** | **10.05.2026** |
+| **100.69.17.14** | **Z56-124** | **10.05.2026** |
+| **100.127.249.15** | **60-usolt-dom** | **10.05.2026** |
+| **100.76.253.51** | **M56-13 (m56-13-alexey-bamboo)** | **10.05.2026** |
+| **100.72.74.78** | **VasyaOnline_DY** | **10.05.2026** |
 ### Пароль для всех роутеров
 `56756789`
+
+---
+
+## Связанные базы
+
+- **`ROUTERS_GROOMED_BASE.md`** — база причёсанных роутеров (groom-routers)
+- **`ROUTERS_REPAIRED_BASE.md`** — база отремонтированных роутеров (этот файл)
 
 ---
 

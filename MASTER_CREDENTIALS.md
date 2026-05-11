@@ -192,6 +192,18 @@ sshpass -p 'Ujkjdf56+' ssh root@151.243.198.86
 
 ---
 
+### CZ2 🇨🇿 — Чехия (relay через bSPB)
+| Параметр | Значение |
+|----------|----------|
+| IP | `92.61.71.14` |
+| SSH | `ssh root@92.61.71.14` пароль: `UTA7v024ohdT` |
+| Панель X-UI | https://cz2.theredhat.su:5050/5050/ (ad/56) |
+| Инбаунды | 18 (WL_rout_cz2_8448, порт 8448, relay через bSPB 5.35.84.151:8448) |
+| pbk | `FyCxYT4Ku_RyR7r2dZYofYxcAOm5xJtgP-T_xjgVnCQ` |
+| sid | `dcaa` |
+
+---
+
 ## X-UI СЕРВЕРЫ (полный список)
 
 Все серверы: логин `ad` / пароль `56`
