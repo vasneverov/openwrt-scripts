@@ -189,3 +189,27 @@
 - **При настройке нового роутера:** сначала проверить версию podkop, потом ставить списки
 - **Урок:** `memory-lessons/lesson_z56-104_repair_2026-05-09.md`
 
+## 30. Всегда загружать flash_router_universal.md при работе с роутером
+- Даже если прошивка не нужна — загрузить скилл, взять шаги 7 (tailscale авторизация) и 8 (спасительные скрипты)
+- Не действовать самому — скилл содержит проверенные шаги
+- **Урок:** `memory-lessons/lesson_2026-05-11_tr-boss-00_consilium_errors.md`
+
+## 31. direct_domains для tailscale — ставить ДО tailscale up
+- Перед tailscale up обязательно добавить в podkop:
+  - `tailscale.com`
+  - `controlplane.tailscale.com`
+  - `login.tailscale.com`
+- Без этого tailscale не может достучаться до coordination server через прокси
+- После добавления — `/etc/init.d/podkop restart`
+- **Урок:** `memory-lessons/lesson_2026-05-11_tr-boss-00_consilium_errors.md`
+
+## 32. После tailscale up — проверять fw_mode и init.d
+- `uci get tailscale.settings.fw_mode` — должно быть `none`
+- `/etc/init.d/tailscale enabled` — должно быть DISABLED
+- Если не совпадает — исправить сразу
+- **Урок:** `memory-lessons/lesson_2026-05-11_tr-boss-00_consilium_errors.md`
+
+## 33. На OpenWrt не использовать nohup
+- `nohup` отсутствует на OpenWrt
+- Использовать: `(cmd &)` или `cmd &`
+- **Урок:** `memory-lessons/lesson_2026-05-11_tr-boss-00_consilium_errors.md`

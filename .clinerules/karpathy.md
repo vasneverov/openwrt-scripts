@@ -1,3 +1,4 @@
+100.105.51.17
 ## KARPATHY PRINCIPLES — ALWAYS ACTIVE
 
 Source: `/Users/vas/.claude/KARPATHY.md`

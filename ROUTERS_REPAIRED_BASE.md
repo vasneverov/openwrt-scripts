@@ -43,6 +43,8 @@
 | 31 | **VasyaOnline_DY** | **100.72.74.78** | **—** | **0.4.6** | **10.05.2026** | **fw_mode=nftables, rc.local пустой (без tailscaled), нет ts-watchdog, exclude_ntp=0** | **fw_mode=none, rc.local с tailscaled userspace, ts-watchdog, crontab 4 агента** | **⚠️ ЗАВТРА: переустановка podkop 0.7.x + новый ключ CZ2:8448 (inbound 18) relay** |
 | 30 | **M56-13 (m56-13-alexey-bamboo)** | **100.76.253.51** | **M3000** | **—** | **10.05.2026** | **Чужой ключ TR56-09_italy в main+bamboo; FakeIP MISSING; нет podkop/route-watchdog; tailscale0 не в LAN; crontab кривой** | **Новый ключ M56-13_italy (Italy ID=2) в оба профиля; FakeIP+watchdogs+crontab; enable_output=1; accept-dns=false** | **✅** |
 | 32 | **tr56-13** | **100.124.148.3** | **Cudy TR3000 v1** | **25.12.0** | **10.05.2026** | **Диагностика + fw4-fix: podkop-watchdog, route-watchdog, WAN firewall fix, crontab обновлён** | **podkop-watchdog, route-watchdog, fw4-fix скрипт + хук в firewall.user, crontab 4 watchdog'а** | **✅** |
+| 33 | **zakhar16** | **100.108.52.26** | **Xiaomi AX3000T** | **25.12.2** | **11.05.2026** | **Tailscale Logged out, fw4-fix отсутствовал, rc.local без timeout** | **fix-tailscale-openwrt.sh v3.1 + fw4-fix + timeout в rc.local** | **✅** |
+| 34 | **tr30-05-serebritsa** | **100.69.174.52** | **TR3005** | **25.12.0** | **11.05.2026** | **rc.local sleep 40, ts-watchdog старый, direct_domains нет, fw4-fix нет, open files 4096** | **direct_domains, ts-watchdog v3.1, rc.local без sleep, fw4-fix, open files 65536** | **✅** |
 ---
 
 ## Подробно по каждому роутеру

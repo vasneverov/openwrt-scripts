@@ -50,7 +50,7 @@ else
     echo "  ✓ network.wan.ifname=$WAN_IFNAME (уже есть)"
 fi
 
-# ===== 4. exclude_ntp = 1 + enable_output_network_interface = 1 =====
+# ===== 4. exclude_ntp = 1 + enable_output_network_interface = 1 + direct_domains =====
 echo "[4/9] Podkop exclude_ntp → 1"
 CURRENT_NTP=$(uci get podkop.settings.exclude_ntp 2>/dev/null)
 if [ "$CURRENT_NTP" != "1" ]; then
@@ -68,6 +68,17 @@ if [ "$CURRENT_OUTPUT" != "1" ]; then
 else
     echo "  ✓ enable_output_network_interface уже 1"
 fi
+
+echo "      direct_domains → tailscale.com (для стабильности long-poll)"
+for DOMAIN in tailscale.com controlplane.tailscale.com login.tailscale.com; do
+    if ! uci show podkop.settings.direct_domains 2>/dev/null | grep -q "$DOMAIN"; then
+        uci add_list podkop.settings.direct_domains="$DOMAIN"
+        echo "  ✓ direct_domains +$DOMAIN"
+    else
+        echo "  ✓ direct_domains $DOMAIN уже есть"
+    fi
+done
+
 uci commit podkop
 
 # ===== 5. rc.local — минимальный + watchdog в фоне =====

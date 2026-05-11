@@ -64,7 +64,26 @@ ssh root@ROUTER_IP "/root/podkop-fw4-fix.sh install"
 2. **После перезагрузки роутера** podkop запускается автоматически через `/etc/rc.d/S99podkop`.
    А podkop-fw4-fix запускается через `/etc/rc.d/S99podkop-fw4-fix`.
 
-3. **⚠️ Проблема: tailscale up зависает после ребута на OpenWrt 25.12**
+3. **⚠️ Проблема: Tailscale точка серая через ~2 мин — podkop обрывает long-poll**
+   - Podkop перехватывает трафик к `controlplane.tailscale.com` через tproxy
+   - Long-poll соединение обрывается через ~2 мин → `context canceled`
+   - **Решение:** Добавить `direct_domains` для tailscale.com в podkop
+
+   ```bash
+   uci add_list podkop.settings.direct_domains='tailscale.com'
+   uci add_list podkop.settings.direct_domains='controlplane.tailscale.com'
+   uci add_list podkop.settings.direct_domains='login.tailscale.com'
+   uci commit podkop
+   /etc/init.d/podkop restart
+   ```
+
+   **Проверка:** `tailscale status | head -1` — должен быть прочерк (не offline)
+   **Лог:** `tail -5 /tmp/ts.log | grep 'derp.*connected'` — DERP connected
+
+   **Важно:** Без direct_domains watchdog с NoState fix чинит, но цикл повторяется.
+   direct_domains решают проблему полностью.
+
+4. **⚠️ Проблема: tailscale up зависает после ребута на OpenWrt 25.12**
    - На OpenWrt 25.12 нет команды `timeout`
    - `tailscale up` может зависнуть навсегда при `LinkChange: major, rebinding`
    - **Решение:** rc.local с tailscaled + ts-watchdog v3.1 в фоне
@@ -99,23 +118,23 @@ ssh root@ROUTER_IP "/root/podkop-fw4-fix.sh install"
    **Важно:** При установке нового rc.local через SSH — Tailscale НЕ перезагружается, SSH не рвётся.
    Новый rc.local применится только после следующего ребута.
 
-4. **Установка Tailscale — через gunano скрипт (одна строка)**
+5. **Установка Tailscale — через gunano скрипт (одна строка)**
    ```bash
    sh -c "$(wget -O- https://raw.githubusercontent.com/GuNanOvO/openwrt-tailscale/main/install_en.sh)" --persistentinstall
    ```
    Скрипт сам определяет архитектуру и ставит правильную версию (толстую или UPX).
 
-5. **Первая авторизация Tailscale — pre-auth key + serve anchor**
+6. **Первая авторизация Tailscale — pre-auth key + serve anchor**
    - После установки: `tailscale up --accept-dns=false --accept-routes --authkey=tskey-auth-xxxxx`
    - **Сразу после:** `tailscale serve --bg --tcp 80 tcp://localhost:80` (и 443, 22)
    - serve фиксирует long-poll — точка не гаснет
    - После появления зелёной точки: `tailscale serve --tcp=80 off` (убрать serve)
    - Дальше точка держится watchdog'ами
 
-6. **Проверять работу нужно с клиента** (ноутбук/телефон за роутером), а не с самого роутера через SSH.
+7. **Проверять работу нужно с клиента** (ноутбук/телефон за роутером), а не с самого роутера через SSH.
    С роутера трафик идёт через OUTPUT и может работать, даже если FORWARD сломан.
 
-7. **Список роутеров, где установлены спящие агенты:**
+8. **Список роутеров, где установлены спящие агенты:**
 
    - z56-08 (100.79.40.126) — ✅ podkop-fw4-fix
    - z56-09 (100.116.130.9) — ✅ podkop-fw4-fix
