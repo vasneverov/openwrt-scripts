@@ -154,6 +154,27 @@ sshpass -p 'AXD0tm4ru942ij' ssh root@91.92.46.152
 
 ---
 
+### DE2 🇩🇪 — Германия (новый, через bMSK relay)
+| Параметр | Значение |
+|----------|----------|
+| IP | `195.26.231.228` |
+| SSH пароль | `24qbXK_EO-` |
+| Панель X-UI | https://195.26.231.228:5050/5050/ (ad/56) |
+| Назначение | Выходной узел для Москвы (через bMSK relay) |
+| Инбаунды | 4191 (main, relay bMSK:5423), 4192 (alt, relay bMSK:5428), 2086 (backup, relay bMSK:5090) |
+| pbk (4191) | `tJQ2sg1fJJjKoy9blRGL8yKKqpDnoHMVsoJ9JVCSFwY` |
+| sid (4191) | `25fbd6cb` |
+| pbk (4192) | `iR2cEt9NRvsSsuXR1f5cBgWZSkEzkmQjK5PX9YMt2Qo` |
+| sid (4192) | `f98d9f37` |
+| pbk (2086) | `iR2cEt9NRvsSsuXR1f5cBgWZSkEzkmQjK5PX9YMt2Qo` |
+| sid (2086) | `9fee82cd` |
+
+```bash
+sshpass -p '24qbXK_EO-' ssh root@195.26.231.228
+```
+
+---
+
 ### FR 🇫🇷 — Франция
 | Параметр | Значение |
 |----------|----------|
@@ -316,6 +337,7 @@ sshpass -p 'T-RUeIl9%+' ssh root@82.38.66.75 'cat /opt/router-monitor/.env'
 Москва роутер
   ├─ main (Fin4) ──► bMSK:5223 ──[DNAT]──► Fin4:4191  (🇫🇮 финский IP)
   ├─ main (PL5)  ──► bMSK:5323 ──[DNAT]──► PL5:4191   (🇵🇱 польский IP)
+  ├─ main (DE2)  ──► bMSK:5423 ──[DNAT]──► DE2:4191   (🇩🇪 немецкий IP)
   └─ YT          ──► bMSK:8853  (прямой, 🇷🇺 российский IP)
 ```
 
@@ -333,6 +355,8 @@ sshpass -p 'T-RUeIl9%+' ssh root@82.38.66.75 'cat /opt/router-monitor/.env'
 | Fin4 (bMSK:5228) | 4192 | `HfbTqAITJraOSM3J-yHpedrv-lKKe41IkU5m-4yPbHI` | `ae2bfb99` |
 | PL5 (bMSK:5323)  | 4191 | `4TCLYNy_kglu_bpE5n3Gx0yQ7L8TJQKRLATLgnXbtEw` | `b5023350` |
 | PL5 (bMSK:5328)  | 4192 | `4TCLYNy_kglu_bpE5n3Gx0yQ7L8TJQKRLATLgnXbtEw` | `3e980e42` |
+| DE2 (bMSK:5423)  | 4191 | `tJQ2sg1fJJjKoy9blRGL8yKKqpDnoHMVsoJ9JVCSFwY` | `25fbd6cb` |
+| DE2 (bMSK:5428)  | 4192 | `iR2cEt9NRvsSsuXR1f5cBgWZSkEzkmQjK5PX9YMt2Qo` | `f98d9f37` |
 | bMSK direct YT | 8853 | (см. SERVERS_RELAY_REFERENCE.md) | — |
 
 ---

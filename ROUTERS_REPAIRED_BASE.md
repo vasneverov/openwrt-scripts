@@ -47,6 +47,10 @@
 | 34 | **tr30-05-serebritsa** | **100.69.174.52** | **TR3005** | **25.12.0** | **11.05.2026** | **rc.local sleep 40, ts-watchdog старый, direct_domains нет, fw4-fix нет, open files 4096** | **direct_domains, ts-watchdog v3.1, rc.local без sleep, fw4-fix, open files 65536** | **✅** |
 | 35 | **S78-08** | **100.68.180.102** | **Cudy WR3000S v1** | **24.10.5** | **11.05.2026** | **Прокси не работал, 8/10 сайтов 000, fw4-fix нет, direct_domains пусто, rc.local старый, ts-watchdog старый** | **fw4-fix, direct_domains, rc.local новый, ts-watchdog v3.1, podkop-fix-lists, списки обновлены** | **✅** |
 | 36 | **100.92.58.69** | **100.92.58.69** | **Cudy WR3000S v1** | **24.10.5** | **11.05.2026** | **fw4-fix отсутствовал, rc.local без timeout, ulimit 1024** | **fw4-fix, rc.local (timeout YES, ulimit), спасительный скрипт** | **✅** |
+| 37 | **s04-v-gryaznov** | **100.95.195.85** | **Cudy WR3000S v1** | **24.10.4** | **11.05.2026** | **fw4-fix отсутствовал, rc.local без timeout, NTP дрейф** | **fw4-fix, rc.local (timeout), NTP-сервера в direct_domains podkop** | **✅** |
+| 38 | **100.97.116.8** | **100.97.116.8** | **Cudy WR3000H v1** | **25.12.0** | **12.05.2026** | **fw4-fix отсутствовал, rc.local без timeout, NTP дрейф** | **fw4-fix, rc.local (timeout), NTP-сервера в direct_domains podkop** | **✅** |
+| 39 | **100.86.250.119** | **100.86.250.119** | **Cudy WR3000E v1** | **24.10.3** | **12.05.2026** | **fw4-fix отсутствовал, rc.local старый, exclude_ntp пусто, 17 списков** | **Rescue + fw4-fix + rc.local (timeout) + NTP direct_domains** | **✅** |
+| 40 | **z56-118-nick-rvachev** | **100.117.90.96** | **—** | **—** | **12.05.2026** | **enable_output_network_interface=0, YouTube community ruleset отсутствовал** | **Rescue_generic.sh ×2 (enable_output=1, watchdog'ы, rc.local) + добавлен YouTube ruleset** | **✅** |
 ---
 
 ## Подробно по каждому роутеру

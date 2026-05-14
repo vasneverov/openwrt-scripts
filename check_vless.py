@@ -14,7 +14,7 @@ Checks:
   5. limit  — limitIp == 0
 """
 
-import sys, re, socket, ssl, subprocess, time, os, datetime
+import sys, re, socket, ssl, subprocess, time, os, datetime, json, base64
 from urllib.parse import parse_qs, unquote
 
 # ── ANSI ──────────────────────────────────────────────────────────────────────
@@ -191,6 +191,69 @@ def ssh_run(host, password, cmd, timeout=10):
     except Exception:
         return '', False
 
+# ── Reality test via sing-box on router ────────────────────────
+# Использует SSH на роутер с sing-box для реальной проверки Reality
+TEST_ROUTERS = [
+    ('100.86.250.119', '56756789'),  # Italy router
+]
+
+def test_reality_via_router(host, port, uuid, sni, pbk, sid, timeout=20):
+    """
+    Создаёт временный конфиг sing-box на роутере, запускает на 3 сек,
+    проверяет логи на 'reality verification failed'.
+    Возвращает (ok, msg).
+    """
+    for router_ip, router_pass in TEST_ROUTERS:
+        config_json = json.dumps({
+            "log": {"level": "error", "output": "/tmp/vless-test.log"},
+            "dns": {"servers": [{"tag": "dns", "address": "1.1.1.1"}]},
+            "inbounds": [{
+                "type": "direct", "tag": "test-in",
+                "listen": "127.0.0.1", "listen_port": 10800
+            }],
+            "outbounds": [{
+                "type": "vless", "tag": "test-out",
+                "server": host, "server_port": port,
+                "uuid": uuid, "flow": "",
+                "tls": {
+                    "enabled": True, "server_name": sni,
+                    "utls": {"enabled": True, "fingerprint": "chrome"},
+                    "reality": {
+                        "enabled": True, "public_key": pbk, "short_id": sid
+                    }
+                },
+                "multiplex": {"enabled": False}
+            }],
+            "route": {"rules": [{"outbound": "test-out"}]}
+        })
+
+        # Передаём JSON через base64 (избегаем проблем с кавычками в SSH)
+        config_b64 = base64.b64encode(config_json.encode()).decode()
+
+        cmd = (
+            f"echo '{config_b64}' | base64 -d > /tmp/vless-test.json && "
+            f"rm -f /tmp/vless-test.log && "
+            f"sing-box run -c /tmp/vless-test.json -D /tmp 2>/dev/null & "
+            f"sleep 4; "
+            f"kill %1 2>/dev/null || true; "
+            f"cat /tmp/vless-test.log 2>/dev/null || echo 'NO_LOG'"
+        )
+
+        out, ok = ssh_run(router_ip, router_pass, cmd, timeout=timeout)
+        if not ok and not out:
+            continue
+
+        if 'reality verification failed' in out.lower():
+            return False, f"Reality FAILED on router {router_ip}"
+        if 'reality' in out.lower() and 'error' in out.lower():
+            return False, f"Reality error on router {router_ip}: {out[:200]}"
+        if 'NO_LOG' in out:
+            return None, f"sing-box не запустился на {router_ip}"
+
+        return True, f"Reality OK (tested via {router_ip})"
+
+    return None, "Нет доступных роутеров для Reality теста"
+
 # ── Server-side check via SSH ──────────────────────────────────────────────────
 def check_server_side(k):
     """
@@ -308,8 +371,17 @@ def check_key(k, idx, total):
     spin_print(f"[{idx}/{total}] SSH  →  server-side checks  ({label})")
     srv = check_server_side(k)
 
+    # Reality test via sing-box on router
+    reality_ok = None
+    reality_msg = None
+    if tcp_ok and tls_ok and k.get('pbk') and k.get('sid'):
+        spin_print(f"[{idx}/{total}] Reality →  sing-box test  ({label})")
+        reality_ok, reality_msg = test_reality_via_router(
+            k['host'], k['port'], k['uuid'], k['sni'], k['pbk'], k['sid']
+        )
+
     spin_clear()
-    return tcp_ok, tcp_ms, tcp_err, tls_ok, tls_ms, tls_err, cn, srv
+    return tcp_ok, tcp_ms, tcp_err, tls_ok, tls_ms, tls_err, cn, srv, reality_ok, reality_msg
 
 # ── Print result card ──────────────────────────────────────────────────────────
 def _chk(val, warn=False):
@@ -323,7 +395,7 @@ def _dot(val):
     if val is False: return c(RED,    "●")
     return c(DIM, "●")
 
-def print_result(k, idx, total, tcp_ok, tcp_ms, tcp_err, tls_ok, tls_ms, tls_err, cn, srv):
+def print_result(k, idx, total, tcp_ok, tcp_ms, tcp_err, tls_ok, tls_ms, tls_err, cn, srv, reality_ok=None, reality_msg=None):
     label = k['label'] or k['uuid'][:12]
 
     # ── Verdict logic ──
@@ -383,7 +455,8 @@ def print_result(k, idx, total, tcp_ok, tcp_ms, tcp_err, tls_ok, tls_ms, tls_err
 
     # ── Server-side checks ──
     if srv['skipped']:
-        print(box_row(c(DIM, "  — server  ") + c(DIM, "pbk не известен — пропускаем server checks")))
+        print(box_row(c(RED, "  ! server  ") + c(YELLOW, "pbk неизвестен — server checks пропущены!")))
+        print(box_row(c(DIM,  "  !         ") + c(YELLOW, "Возможно pbk неверный. Сверь с RELAY_REFERENCE.json")))
     elif srv['no_sshpass']:
         if not _has_sshpass():
             print(box_row(c(YELLOW, "  ! server  ") + c(YELLOW, "установи sshpass для проверки expiry/limit")))
@@ -436,7 +509,19 @@ def print_result(k, idx, total, tcp_ok, tcp_ms, tcp_err, tls_ok, tls_ms, tls_err
             row = c(DIM, "  — limit ") + "  " + c(DIM, "не удалось проверить")
         print(box_row(row))
 
-    print(box_empty())
+    # ── Reality check ──
+    if reality_ok is True:
+        row = c(GREEN, "  ✓ Reality") + "  " + c(GREEN, "sing-box handshake OK") + c(DIM, f"  {reality_msg}")
+    elif reality_ok is False:
+        row = c(RED, "  ✗ Reality") + "  " + c(RED, reality_msg or "Reality FAILED!")
+    elif reality_msg:
+        row = c(YELLOW, "  ! Reality") + "  " + c(YELLOW, reality_msg)
+    else:
+        row = None
+    if row:
+        print(box_row(row))
+        print(box_empty())
+
     print(box_sep())
     print(box_empty())
 
@@ -452,6 +537,8 @@ def print_result(k, idx, total, tcp_ok, tcp_ms, tcp_err, tls_ok, tls_ms, tls_err
             ("expiry", srv['expiry_ok']),
             ("limit",  srv['limit_ok']),
         ]
+    if reality_ok is not None:
+        checks.append(("Reality", reality_ok))
 
     parts = []
     for name, val in checks:

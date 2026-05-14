@@ -1,6 +1,6 @@
 # Справочник VPN-серверов и релеев
 
-> Обновлено: 2026-04-28  
+> Обновлено: 2026-05-12  
 > Все панели: логин `ad` / пароль `56`  
 > SSH-пароль для OpenWrt роутеров: `56756789`
 
@@ -84,6 +84,10 @@ vless://UUID@5.35.84.151:2090?type=grpc&security=reality&mode=gun&serviceName=&p
 | **5228** | → | Fin4 `45.155.55.198:4192` | `HfbTqAITJraOSM3J-yHpedrv-lKKe41IkU5m-4yPbHI` | `ae2bfb99` |
 | **5323** | → | PL5 `91.92.46.229:4191`  | `4TCLYNy_kglu_bpE5n3Gx0yQ7L8TJQKRLATLgnXbtEw` | `b5023350` |
 | **5328** | → | PL5 `91.92.46.229:4192`  | `4TCLYNy_kglu_bpE5n3Gx0yQ7L8TJQKRLATLgnXbtEw` | `3e980e42` |
+| **5423** | → | DE2 `195.26.231.228:4191` | `NY0rf1MTb_iYL1tTS_XjKPYfEAtBLWSFPt-LjNtC_nI` | `25fbd6cb` |
+| **5428** | → | DE2 `195.26.231.228:4192` | `BCaOajqlO-2Z4mdt3gQ0rpNUOQtbexK8wn7Pc3p0SHw` | `f98d9f37` |
+| **5090** | → | DE2 `195.26.231.228:2086` | `iR2cEt9NRvsSsuXR1f5cBgWZSkEzkmQjK5PX9YMt2Qo` | `9fee82cd` |
+| **5091** | → | DE2 `195.26.231.228:2087` (olcRTC) | `gZN-WvRcuLif7XXjVA2DJiCO3H0Vel77gLE0Qg-NskI` | `9fee82cd` |
 
 **Прямые инбаунды на bMSK:**
 
@@ -140,6 +144,37 @@ vless://UUID@159.194.198.172:8853?type=grpc&security=reality&mode=gun&serviceNam
 
 ---
 
+
+
+### DE2 — Германия 2 (`195.26.231.228`)
+
+| Параметр | Значение |
+|----------|----------|
+| IP | `195.26.231.228` |
+| SSH | `24qbXK_EO-` |
+| База | xray-core `26.3.27` (без панели) |
+| Назначение | Целевой сервер (🇩🇪 Германия) для Москвы |
+
+**Инбаунды (xray config, без панели):**
+
+| Порт | Tag | Для роутеров | pbk | sid |
+|------|-----|-------------|-----|-----|
+| **4191** | DE2_4191_main | bMSK:5423 | `NY0rf1MTb_iYL1tTS_XjKPYfEAtBLWSFPt-LjNtC_nI` | `25fbd6cb` |
+| **4192** | DE2_4192_alt | bMSK:5428 | `BCaOajqlO-2Z4mdt3gQ0rpNUOQtbexK8wn7Pc3p0SHw` | `f98d9f37` |
+| **2086** | DE2_2086_backup | bMSK:5090 | `iR2cEt9NRvsSsuXR1f5cBgWZSkEzkmQjK5PX9YMt2Qo` | `9fee82cd` |
+| **2087** | DE2_2087_room (olcRTC) | bMSK:5091 | `gZN-WvRcuLif7XXjVA2DJiCO3H0Vel77gLE0Qg-NskI` | `9fee82cd` |
+
+**Сервисы на DE2:**
+| Сервис | Порт | Назначение |
+|--------|------|------------|
+| `x-ui` (xray) | 2086 | Обычный relay (bMSK:5090 → DE2:2086 → direct) |
+| `xray-room` | 2087 | Room-схема (bMSK:5091 → DE2:2087 → SOCKS5:8808 → olcrtc-cnc) |
+| `olcrtc-cnc` | 8808 (SOCKS5) | olcRTC клиент (SOCKS5 → WebRTC → WB Stream → olcrtc-srv) |
+| `olcrtc` (сервер) | — | olcRTC сервер (принимает WebRTC, отдаёт в интернет) |
+
+> **Добавление клиентов в room:** SSH на DE2 → править `/usr/local/etc/xray-room.json` (секция `inbounds[0].settings.clients`) → `systemctl restart xray-room`
+> **Добавление клиентов в relay:** SSH на DE2 → править `/usr/local/x-ui/bin/config.json` → `systemctl restart x-ui`
+
 ### Italy — Италия (`151.243.198.86`)
 
 | Параметр | Значение |
@@ -166,6 +201,11 @@ vless://UUID@159.194.198.172:8853?type=grpc&security=reality&mode=gun&serviceNam
 |----|------|--------|------------|-----|-----|
 | 1 | 4191 | pl5_rout_1 | bMSK:5323 | `4TCLYNy_kglu_bpE5n3Gx0yQ7L8TJQKRLATLgnXbtEw` | `b5023350` |
 | 2 | 4192 | pl5_rout_2 | bMSK:5328 | `4TCLYNy_kglu_bpE5n3Gx0yQ7L8TJQKRLATLgnXbtEw` | `3e980e42` |
+
+**Формат VLESS для main (московская схема → DE2):**
+```
+vless://UUID@159.194.198.172:5423?type=tcp&security=reality&pbk=NY0rf1MTb_iYL1tTS_XjKPYfEAtBLWSFPt-LjNtC_nI&sid=25fbd6cb&sni=www.microsoft.com&fp=chrome&flow=xtls-rprx-vision#DE2_main
+```
 
 **Формат VLESS для main (московская схема → PL5):**
 ```
@@ -233,6 +273,10 @@ vless://UUID@159.194.198.172:5323?type=grpc&security=reality&mode=gun&serviceNam
 Москва роутер
     │
     ├─ main ──► bMSK:5223 ──[DNAT]──► Fin4:4191 (🇫🇮 Finnish IP)
+    ├─ main ──► bMSK:5423 ──[DNAT]──► DE2:4191 (🇩🇪 German IP)
+    ├─ main ──► bMSK:5428 ──[DNAT]──► DE2:4192 (🇩🇪 German IP)
+    ├─ main ──► bMSK:5090 ──[DNAT]──► DE2:2086 (🇩🇪 German IP, relay)
+    ├─ room ──► bMSK:5091 ──[DNAT]──► DE2:2087 ──[SOCKS5]──► olcrtc-cnc ──[WebRTC]──► olcrtc-srv (🇩🇪 German IP, olcRTC)
     └─ YT  ──► bMSK:8853  (прямой, 🇷🇺 Russian IP)
 ```
 

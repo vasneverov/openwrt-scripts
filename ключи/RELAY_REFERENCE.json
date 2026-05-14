@@ -11,7 +11,8 @@
     "italy":  {"url": "https://151.243.198.86:5050/5050", "ssh": "Ujkjdf56"},
     "bspb":   {"url": "https://5.35.84.151:5050/5050",    "ssh": null},
     "bmsk":   {"url": "https://159.194.198.172:5050/5050", "ssh": "Ujkjdf56#"},
-    "cz3":    {"url": "https://cz3.theredhat.su:5050/5050", "ssh": null}
+    "cz3":    {"url": "https://cz3.theredhat.su:5050/5050", "ssh": null},
+    "de2":    {"url": "https://195.26.231.228:5050/5050", "ssh": "24qbXK_EO-"}
   },
   "relays": [
     {
@@ -148,9 +149,90 @@
       "sni": "www.apple.com",
       "label_suffix": "ApeCZ3",
       "remark": "Main Чехия для Москвы (bMSK:8880 → CZ3:8880)"
+    },
+    {
+      "id": "msk_germany",
+      "city": "msk",
+      "country": "germany",
+      "relay_ip": "159.194.198.172",
+      "relay_port": 5090,
+      "target_server": "de2",
+      "target_port": 2086,
+      "target_inbound": 3,
+      "pbk": "iR2cEt9NRvsSsuXR1f5cBgWZSkEzkmQjK5PX9YMt2Qo",
+      "sid": "9fee82cd",
+      "sni": "www.apple.com",
+      "label_suffix": "DE2",
+      "remark": "Main Германия для Москвы (bMSK:5090 → DE2:2086, gRPC, BBR)"
+    },
+    {
+      "id": "msk_germany_4191",
+      "city": "msk",
+      "country": "germany",
+      "relay_ip": "159.194.198.172",
+      "relay_port": 5423,
+      "target_server": "de2",
+      "target_port": 4191,
+      "target_inbound": 1,
+      "pbk": "iR2cEt9NRvsSsuXR1f5cBgWZSkEzkmQjK5PX9YMt2Qo",
+      "sid": "25fbd6cb",
+      "sni": "www.apple.com",
+      "fp": "chrome",
+      "flow": "",
+      "type": "grpc",
+      "label_suffix": "DE2_4191",
+      "remark": "Main Германия для Москвы (bMSK:5423 → DE2:4191, gRPC+Reality)"
+    },
+    {
+      "id": "msk_germany_4192",
+      "city": "msk",
+      "country": "germany",
+      "relay_ip": "159.194.198.172",
+      "relay_port": 5428,
+      "target_server": "de2",
+      "target_port": 4192,
+      "target_inbound": 2,
+      "pbk": "iR2cEt9NRvsSsuXR1f5cBgWZSkEzkmQjK5PX9YMt2Qo",
+      "sid": "f98d9f37",
+      "sni": "www.apple.com",
+      "label_suffix": "DE2_4192",
+      "remark": "Main Германия для Москвы (bMSK:5428 → DE2:4192, gRPC)"
+    },
+    {
+      "id": "msk_germany_ws",
+      "city": "msk",
+      "country": "germany",
+      "relay_ip": "159.194.198.172",
+      "relay_port": 443,
+      "target_server": "de2",
+      "target_port": 2086,
+      "target_inbound": 3,
+      "type": "ws+tls",
+      "ws_path": "/vpn",
+      "pbk": "iR2cEt9NRvsSsuXR1f5cBgWZSkEzkmQjK5PX9YMt2Qo",
+      "sid": "9fee82cd",
+      "sni": "159.194.198.172",
+      "label_suffix": "DE2_WS",
+      "remark": "Германия через WebSocket+TLS (bMSK:443 Caddy → WS → xray:8444 → DNAT → DE2:2086)"
+    },
+    {
+      "id": "msk_germany_room",
+      "city": "msk",
+      "country": "germany",
+      "relay_ip": "159.194.198.172",
+      "relay_port": 5091,
+      "target_server": "de2",
+      "target_port": 2087,
+      "target_inbound": "room",
+      "pbk": "iR2cEt9NRvsSsuXR1f5cBgWZSkEzkmQjK5PX9YMt2Qo",
+      "sid": "9fee82cd",
+      "sni": "www.apple.com",
+      "label_suffix": "DE2_ROOM",
+      "remark": "Германия через olcRTC (bMSK:5091 → DE2:2087 → SOCKS5 → olcrtc-cnc → WebRTC → WB Stream → olcrtc-srv → интернет)"
     }
   ],
   "directs": [
+
     {
       "id": "spb_yt",
       "city": "spb",

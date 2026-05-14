@@ -12,7 +12,7 @@ Usage:
 Source: ключи/RELAY_REFERENCE.json
 """
 
-import sys, os, json, uuid, subprocess, time, datetime, threading
+import sys, os, json, uuid, subprocess, time, datetime, threading, re
 
 # ── Paths ──────────────────────────────────────────────────────────────────────
 BASE_DIR     = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

@@ -2593,3 +2593,33 @@ vless://b95574b2-c4e8-428e-94b5-89ee077c3639@159.194.198.172:8853?type=grpc&secu
 ```
 
 *Источник: `63-zakhar-otec.md`*
+
+## 100.86.250.119 — MSK → FINLAND (main)
+
+| Параметр | Значение |
+|----------|----------|
+| Дата | 2026-05-12 |
+| Тип | main |
+| Город | msk |
+| Страна | finland |
+| Relay | 159.194.198.172:5223 |
+| Label | 100.86.250.119_Fin4 |
+
+```
+vless://007dd474-121f-44fc-bbaa-90fd9851a7e9@159.194.198.172:5223?type=grpc&security=reality&mode=gun&serviceName=&pbk=HfbTqAITJraOSM3J-yHpedrv-lKKe41IkU5m-4yPbHI&sid=4b929012&sni=www.apple.com&fp=chrome&spx=%2F#100.86.250.119_Fin4
+```
+
+## 100.86.250.119 — MSK → POLAND (main)
+
+| Параметр | Значение |
+|----------|----------|
+| Дата | 2026-05-12 |
+| Тип | main |
+| Город | msk |
+| Страна | poland |
+| Relay | 159.194.198.172:5323 |
+| Label | 100.86.250.119_PL5 |
+
+```
+vless://8681966e-9e97-444a-b976-6a5ba364fae9@159.194.198.172:5323?type=grpc&security=reality&mode=gun&serviceName=&pbk=4TCLYNy_kglu_bpE5n3Gx0yQ7L8TJQKRLATLgnXbtEw&sid=b5023350&sni=www.apple.com&fp=chrome&spx=%2F#100.86.250.119_PL5
+```
