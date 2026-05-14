@@ -227,3 +227,30 @@
 - `nohup` отсутствует на OpenWrt
 - Использовать: `(cmd &)` или `cmd &`
 - **Урок:** `memory-lessons/lesson_2026-05-11_tr-boss-00_consilium_errors.md`
+
+## 34. russia_inside — НИКОГДА не оставлять в списках podkop
+- 21 список: telegram, meta, youtube, geoblock, block, porn, news, anime, discord, twitter, hdrezka, tiktok, cloudflare, google_ai, google_play, hodca, roblox, hetzner, ovh, digitalocean, cloudfront
+- youtube — третий (после telegram и meta)
+- russia_inside удалять сразу после любой установки/переустановки podkop
+- Проверка: `uci show podkop.main.community_lists | grep russia` → если есть — удалять
+- Команда: `uci del_list podkop.main.community_lists="russia_inside" && uci commit podkop`
+
+## 35. SSH добавление клиента на DE2 — ТОЛЬКО через base64
+- `python3 -c "..."` через SSH ломает экранирование — НЕ ИСПОЛЬЗОВАТЬ
+- Правильно: написать Python-скрипт → base64 → cat | ssh 'base64 -d | python3'
+- После добавления: `grep UUID /usr/local/x-ui/bin/config.json` — обязательно
+- Потом: `systemctl restart xray-direct && systemctl is-active xray-direct`
+
+## 36. Podkop секция `main` — ТИП ДОЛЖЕН БЫТЬ `section` (НЕ `main`, НЕ `extra`)
+- **Правильный тип:** `config section 'main'` (в файле `/etc/config/podkop`)
+- **Проверка:** `grep '^config' /etc/config/podkop | grep -v settings`
+  - Должно быть: `config section 'main'`
+  - НЕПРАВИЛЬНО: `config main 'main'` (тип `main`) — Podkop 0.7.x не найдёт proxy_string
+  - НЕПРАВИЛЬНО: `config extra 'main'` (тип `extra`) — LuCI JS не отрендерит, Podkop не найдёт
+- **Почему:** Podkop CLI (0.7.x) ищет `config_foreach _check_outbound_section "section"` — ТОЛЬКО тип `section`
+  LuCI JS form использует `form.TypedSection, "section"` — ТОЛЬКО тип `section`
+- **Как сломать:** Открыть Podkop в LuCI (Yandex/Chrome), увидеть пустоту, нажать "Add Section" → "Save". LuCI перезапишет тип на `extra`, proxy_string пропадёт.
+- **Как чинить:** `uci delete podkop.main && uci set podkop.main="section"` — пересоздать с type, восстановить proxy_string и списки
+- **Для старых podkop (0.4.x):** Тоже менять `main` → `section` (podkop 0.4.x итерациирует ВСЕ секции, тип не важен, но на будущее совместимо)
+- **НИКОГДА не добавлять в конфиг** `config dashboard` или `config diagnostic` — LuCI JS их хардкодит через `cfgsections`, в конфиге они не нужны, только засоряют outbound checks
+- **Проверка одним SSH:** `grep '^config' /etc/config/podkop | grep -v settings` — убедиться, что нет `extra` или `main`

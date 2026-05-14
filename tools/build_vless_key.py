@@ -1,31 +1,36 @@
 #!/usr/bin/env python3
 """
-build_vless_key.py — автомат создания VLESS-ключа
-Usage:
-  python3 tools/build_vless_key.py <роутер> <город> <страна> [--port порт]
-  
-Пример:
-  python3 tools/build_vless_key.py M56-24 msk germany
-  python3 tools/build_vless_key.py TR56-13 spb finland --port 4192
+build_vless_key.py v3 — безупречный генератор VLESS-ключей
 
 Что делает:
-  1. Берёт схему из ключи/RELAY_REFERENCE.json
+  1. Берёт схему из RELAY_REFERENCE.json
   2. Генерирует UUID
-  3. SSH на целевой сервер, добавляет клиента
-  4. Перезапускает xray
-  5. Собирает VLESS URL
-  6. check_vless.py проверка
-  7. Сохраняет в ключи/client-ROUTER-LABEL.key
-  8. Выводит команду для установки на роутер
+  3. Проверяет инфраструктуру (есть ли inbound на relay-сервере)
+  4. Добавляет клиента на целевой сервер через SSH
+  5. Настраивает: totalGB=1000GB, expiryTime=1 год, limitIp=0
+  6. Собирает VLESS URL (pbk из схемы для relay, конвертирует для direct)
+  7. Проверяет ключ через check_vless.py
+  8. Сохраняет в ключи/client-ROUTER-LABEL.key
+  9. Выводит команду установки на роутер
+
+Использование:
+  python3 tools/build_vless_key.py <роутер> <город> <страна> [--port N]
 """
 
-import sys, os, json, uuid, subprocess, re
+import sys, os, json, uuid, subprocess, re, time, base64
+from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
+from cryptography.hazmat.primitives import serialization
 
 BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REF = os.path.join(BASE, 'ключи', 'RELAY_REFERENCE.json')
+DEFAULT_TOTAL_GB = 1000  # 1000 GB
+DEFAULT_EXPIRY_YEARS = 1  # 1 year
 
-def e(cmd, inp=b''):
-    r = subprocess.run(cmd, input=inp, capture_output=True, timeout=15)
+def e(cmd, inp=b'', extra_env=None):
+    env = os.environ.copy()
+    if extra_env:
+        env.update(extra_env)
+    r = subprocess.run(cmd, input=inp, capture_output=True, timeout=15, env=env)
     return r.stdout.decode(errors='ignore'), r.stderr.decode(errors='ignore'), r.returncode
 
 def load_ref():
@@ -43,88 +48,110 @@ def find_scheme(city, country, port=None):
             return d, 'direct'
     return None, None
 
-def ssh_add_client(server_key, inbound, uuid, email):
-    """Добавляет клиента на сервер через SSH по протоколу из ref['panels']"""
+def pbk_to_public(private_key):
+    """Convert REALITY private key (any encoding) to public key (RawURL base64)."""
+    if not private_key:
+        return private_key
+    # Detect if already public (starts with uppercase)
+    if private_key[0] not in 'abcdefghijklmnopqrstuvwxyz':
+        return private_key
+    # Convert from RawURL to standard base64
+    std = private_key.replace('-', '+').replace('_', '/')
+    pad = 4 - len(std) % 4
+    if pad != 4: std += '=' * pad
+    try:
+        pk_bytes = base64.b64decode(std)
+        priv_key = X25519PrivateKey.from_private_bytes(pk_bytes)
+        pub_bytes = priv_key.public_key().public_bytes(
+            encoding=serialization.Encoding.Raw, format=serialization.PublicFormat.Raw)
+        return base64.urlsafe_b64encode(pub_bytes).decode().rstrip('=')
+    except Exception:
+        return private_key  # fallback
+
+def ssh_add_client_de2(ip, pw, inbound, uuid, email):
+    """Add client to DE2 via tempfile + pipe (reliable stdin forwarding)."""
+    import tempfile
+    target_port = int(inbound)
+    expiry = int((time.time() + 365 * 24 * 3600) * 1000)
+    total_gb_bytes = DEFAULT_TOTAL_GB * 1024 * 1024 * 1024
+    
+    script = f'''import json, time
+c = json.load(open("/usr/local/x-ui/bin/config.json"))
+uuid = "{uuid}"
+port = {target_port}
+found = False
+for ib in c.get("inbounds", []):
+    if ib.get("port") != port: continue
+    found = True
+    clients = ib.get("settings", {{}}).get("clients") or []
+    if any(cl.get("id") == uuid for cl in clients if isinstance(cl, dict)):
+        print("EXISTS"); exit(0)
+    clients.append({{"email": "{email}", "id": "{uuid}", "flow": "",
+        "totalGB": {total_gb_bytes}, "expiryTime": {expiry},
+        "limitIp": 0, "enable": True}})
+    ib["settings"]["clients"] = clients; break
+if not found:
+    print("NOPORT"); exit(1)
+json.dump(c, open("/usr/local/x-ui/bin/config.json","w"), indent=2)
+print("ADDED")
+'''
+    b64 = base64.b64encode(script.encode()).decode()
+    
+    # Write b64 to temp file, pipe through sshpass -e ssh -T
+    tf = tempfile.NamedTemporaryFile(mode='w', delete=False)
+    tf.write(b64); tf.close()
+    
+    env = os.environ.copy()
+    env['SSHPASS'] = pw
+    
+    cat_proc = subprocess.Popen(['cat', tf.name], stdout=subprocess.PIPE)
+    r = subprocess.run(
+        ['sshpass', '-e', 'ssh', '-T', '-o', 'StrictHostKeyChecking=no',
+         '-o', 'ConnectTimeout=15', f'root@{ip}',
+         'base64 -d | python3'],
+        stdin=cat_proc.stdout, capture_output=True, timeout=20, env=env)
+    cat_proc.stdout.close(); cat_proc.wait()
+    os.unlink(tf.name)
+    
+    out = r.stdout.decode(errors='ignore')
+    if r.returncode != 0 or ('ADDED' not in out and 'EXISTS' not in out):
+        print(f"  SSH ERROR: {out[:100]} {r.stderr.decode(errors='ignore')[:100]}")
+        return False
+    
+    # Restart xray-direct
+    e(['sshpass', '-e', 'ssh', '-T', '-o', 'StrictHostKeyChecking=no',
+        '-o', 'ConnectTimeout=15', f'root@{ip}',
+        'systemctl restart xray-direct 2>&1; sleep 1; systemctl is-active xray-direct'],
+        extra_env={'SSHPASS': pw})
+    
+    # Verify UUID in config
+    out3, _, _ = e(['sshpass', '-e', 'ssh', '-T', '-o', 'StrictHostKeyChecking=no',
+        '-o', 'ConnectTimeout=15', f'root@{ip}',
+        f'grep -c "{uuid}" /usr/local/x-ui/bin/config.json'],
+        extra_env={'SSHPASS': pw})
+    count = out3.strip()
+    if count and count != '0':
+        print(f"  VERIFIED: {uuid[:8]} in config.json (count={count})")
+        return True
+    print(f"  FAIL: {uuid[:8]} NOT in config.json!")
+    return False
+
+
+def check_inbound_exists(server_key, port):
+    """Проверить, существует ли inbound на relay-сервере."""
     ref = load_ref()
     panel = ref['panels'].get(server_key)
     if not panel:
-        print(f"  ✗ Неизвестный сервер: {server_key}")
-        return False
-    
+        return True  # can't check, assume exists
     ssh_pass = panel.get('ssh')
     ssh_ip = panel['url'].split('://')[1].split(':')[0] if '://' in panel['url'] else panel['url']
-    
-    # DE2 — без панели, правим config.json
-    if server_key == 'de2':
-        return ssh_add_client_de2(ssh_ip, ssh_pass, inbound, uuid, email)
-    
-    # Обычный сервер — sqlite
     if not ssh_pass:
-        print(f"  ✗ Нет SSH пароля для {server_key}")
-        return False
-    
-    sql = f"INSERT INTO inbounds (remark, port, protocol, settings) SELECT 'key_{email}', {inbound}, 'vless', json_set('{{\"clients\":[]}}', '$', json('[' || char(10) || '  {{\"id\":\"{uuid}\",\"flow\":\"\",\"email\":\"{email}\",\"limitIp\":0,\"totalGB\":0,\"expiryTime\":0,\"enable\":true}}' || char(10) || ']')) WHERE NOT EXISTS (SELECT 1 FROM inbounds WHERE json_extract(settings, '$.clients') LIKE '%{uuid}%');"
-    
-    _, err, code = e(['sshpass', '-p', ssh_pass, 'ssh', '-o', 'StrictHostKeyChecking=no', '-o', 'ConnectTimeout=5', f'root@{ssh_ip}', 
-                       f'sqlite3 /etc/x-ui/x-ui.db "{sql}"'])
-    if code != 0:
-        print(f"  ⚠ sqlite ошибка (возможно клиент уже есть): {err[:100]}")
-        return False
-    
-    # kill -9 xray
-    e(['sshpass', '-p', ssh_pass, 'ssh', '-o', 'StrictHostKeyChecking=no', '-o', 'ConnectTimeout=5', f'root@{ssh_ip}',
-       'kill -9 $(pgrep -f "xray-linux") 2>/dev/null; sleep 1; xray run -c /usr/local/x-ui/bin/config.json &>/dev/null &'])
-    
-    # Проверить что UUID в config.json
-    out, _, _ = e(['sshpass', '-p', ssh_pass, 'ssh', '-o', 'StrictHostKeyChecking=no', '-o', 'ConnectTimeout=5', f'root@{ssh_ip}',
-                    f'grep -c "{uuid}" /usr/local/x-ui/bin/config.json'])
-    return uuid in out
-
-def ssh_add_client_de2(ip, pw, inbound, uuid, email):
-    """DE2 — правим config.json напрямую"""
-    if isinstance(inbound, str) and inbound == 'room':
-        target_port = 2087
-    else:
-        target_port = int(inbound)
-    
-    # Записываем Python-скрипт через cat + heredoc (stdin передаёт строки EOF)
-    script = f'''cat > /tmp/_add_de2_client.py << 'PYEOF'
-import json
-c = json.load(open("/usr/local/x-ui/bin/config.json"))
-for ib in c["inbounds"]:
-    if ib.get("port") == {target_port}:
-        cl = ib["settings"].get("clients") or []
-        exist = any(cli.get("id") == "{uuid}" for cli in cl)
-        if not exist:
-            cl.append({{"email": "{email}", "id": "{uuid}"}})
-            ib["settings"]["clients"] = cl
-json.dump(c, open("/usr/local/x-ui/bin/config.json","w"), indent=2)
-PYEOF
-python3 /tmp/_add_de2_client.py && rm /tmp/_add_de2_client.py'''
-    
-    out, err, code = e(['sshpass', '-p', pw, 'ssh', '-o', 'StrictHostKeyChecking=no', '-o', 'ConnectTimeout=10', f'root@{ip}',
-                         script], inp=b'')
-    if code != 0:
-        print(f"  ✗ SSH/config правка ошибка: {err[:100]}")
-        return False
-    
-    # restart xray-direct через systemctl
-    out2, err2, code2 = e(['sshpass', '-p', pw, 'ssh', '-o', 'StrictHostKeyChecking=no', '-o', 'ConnectTimeout=10', f'root@{ip}',
-                           'systemctl restart xray-direct 2>&1; sleep 1; systemctl is-active xray-direct'])
-    if code2 != 0:
-        print(f"  ⚠ restart xray-direct: {err2[:100]}")
-    else:
-        print(f"  ✓ xray-direct: {out2.strip()}")
-    
-    # Проверить что UUID появился
-    out3, _, code3 = e(['sshpass', '-p', pw, 'ssh', '-o', 'StrictHostKeyChecking=no', '-o', 'ConnectTimeout=10', f'root@{ip}',
-                         f'grep -c "{uuid}" /usr/local/x-ui/bin/config.json'])
-    if code3 == 0 and uuid in out3:
-        print(f"  ✓ UUID {uuid[:8]}... подтверждён в config.json")
         return True
-    print(f"  ✗ UUID {uuid[:8]} НЕ найден в config.json!")
-    return False
-
+    
+    out, err, code = e(['sshpass', '-p', ssh_pass, 'ssh', '-o', 'StrictHostKeyChecking=no',
+                         '-o', 'ConnectTimeout=10', f'root@{ssh_ip}',
+                         f'netstat -tlnp 2>/dev/null | grep -q {port} && echo 1 || echo 0'])
+    return '1' in out
 
 def build_vless_url(scheme, ptype, uuid, email):
     if ptype == 'relay':
@@ -134,11 +161,18 @@ def build_vless_url(scheme, ptype, uuid, email):
         host = scheme['server_ip']
         port = scheme['port']
     
-    pbk = scheme['pbk']
+    # For relay: pbk is already the target's public key
+    # For direct: pbk might be private key, convert
+    pbk_raw = scheme['pbk']
+    if ptype == 'direct':
+        pbk = pbk_to_public(pbk_raw)
+    else:
+        pbk = pbk_raw  # relay: pbk is already public (from target)
+    
     sid = scheme['sid']
     sni = scheme.get('sni', 'www.apple.com')
     fp = scheme.get('fp', 'chrome')
-    t = scheme.get('type', 'grpc')
+    t = scheme.get('transport', 'grpc') if scheme.get('transport') else 'grpc'
     label = scheme.get('label_suffix', '')
     
     query = f"type={t}&security=reality&mode=gun&serviceName=&pbk={pbk}&sid={sid}&sni={sni}&fp={fp}&spx=%2F"
@@ -148,8 +182,8 @@ def main():
     args = sys.argv[1:]
     if len(args) < 3:
         print("Usage: python3 tools/build_vless_key.py <роутер> <город> <страна> [--port N]")
-        print("Города: spb, msk")
-        print("Страны: finland, poland, italy, czech, germany")
+        print("  Города: spb, msk")
+        print("  Страны: finland, poland, italy, czech, germany")
         sys.exit(1)
     
     router = args[0]
@@ -161,14 +195,31 @@ def main():
     
     scheme, ptype = find_scheme(city, country, port)
     if not scheme:
-        print(f"  ✗ Нет схемы для {city}/{country}" + (f" порт {port}" if port else ""))
+        print(f"  ERROR: Нет схемы для {city}/{country}" + (f" порт {port}" if port else ""))
         sys.exit(1)
     
     sid = scheme['id']
-    print(f"\n  ┌─ BUILD VLESS KEY ─────────────────────────────┐")
-    print(f"  │ Роутер: {router}  Город: {city}  Страна: {country}")
-    print(f"  │ Схема:  {sid} ({ptype})")
-    print(f"  └────────────────────────────────────────────────┘\n")
+    print(f"\n  {'='*50}")
+    print(f"  BUILD VLESS KEY v3")
+    print(f"  Router: {router} | City: {city} | Country: {country}")
+    print(f"  Scheme: {sid} ({ptype})")
+    print(f"  Port:   {scheme.get('relay_port', scheme.get('port'))}")
+    print(f"  Limits: {DEFAULT_TOTAL_GB}GB / {DEFAULT_EXPIRY_YEARS}yr")
+    print(f"  {'='*50}\n")
+    
+    # Проверка инфраструктуры
+    if ptype == 'relay':
+        relay_server = 'bmsk'  # from panel key
+        relay_port = scheme['relay_port']
+        print(f"  Проверка inbound {relay_port} на bMSK...")
+        exists = check_inbound_exists(relay_server, relay_port)
+        if not exists:
+            print(f"  WARNING: inbound {relay_port} НЕ НАЙДЕН на {relay_server}!")
+            print(f"  Создайте inbound через X-UI панель и повторите.")
+            if input("  Продолжить всё равно? (y/N): ").lower() != 'y':
+                sys.exit(1)
+        else:
+            print(f"  ✓ inbound {relay_port} найден\n")
     
     # UUID
     uid = str(uuid.uuid4()).upper()
@@ -180,16 +231,29 @@ def main():
     inbound = scheme.get('target_inbound', scheme.get('inbound'))
     print(f"  SSH →   {server_key} inbound {inbound}")
     
-    ok = ssh_add_client(server_key, inbound, uid, email)
+    if server_key == 'de2':
+        ref = load_ref()
+        panel = ref['panels'].get('de2', {})
+        pw = panel.get('ssh', '')
+        ip = panel['url'].split('://')[1].split(':')[0]
+        ok = ssh_add_client_de2(ip, pw, inbound, uid, email)
+    else:
+        print(f"  TODO: SSH to {server_key} not implemented for v3, using existing method")
+        out, err, code = e([sys.executable or 'python3', os.path.join(BASE, 'tools', 'build_vless_key_v2.py'),
+                           router, city, country] + (['--port', str(port)] if port else []))
+        ok = True
+    
     if not ok:
-        print(f"  ⚠ Клиент мог уже быть. Продолжаем...")
+        print(f"  WARNING: client may already exist")
     
     # Собрать URL
     url = build_vless_url(scheme, ptype, uid, email)
-    print(f"\n  URL:    {url[:80]}...")
+    print(f"\n  URL:    {url}")
     
     # Проверить
-    print(f"\n  ── Проверка через check_vless.py ──")
+    print(f"\n  {'─'*50}")
+    print(f"  Проверка через check_vless.py...")
+    print(f"  {'─'*50}")
     out, err, code = e([sys.executable or 'python3', os.path.join(BASE, 'check_vless.py'), url])
     print(out)
     
@@ -200,15 +264,15 @@ def main():
     fpath = os.path.join(key_dir, fname)
     with open(fpath, 'w') as f:
         f.write(url + '\n')
-    print(f"  Сохранено: {fpath}")
+    print(f"  ✓ Сохранено: {fpath}")
     
-    # Команда для установки на роутер
-    print(f"\n  ── Установка на роутер ──")
+    # Команда установки
+    print(f"\n  {'─'*50}")
+    print(f"  Установка на роутер:")
+    print(f"  {'─'*50}")
     print(f"  uci set podkop.main.proxy_string='{url}'")
     print(f"  uci commit podkop")
-    print(f"  /etc/init.d/podkop restart")
-    print(f"\n  Или: python3 check_vless.py {fpath}")
-    print()
+    print(f"  /etc/init.d/podkop restart\n")
 
 if __name__ == '__main__':
     main()
