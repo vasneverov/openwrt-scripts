@@ -262,7 +262,8 @@ cat > /usr/share/rpcd/acl.d/luci-app-modem.json << 'ACLEOF'
     "description": "Grant access to sysfs for modem monitoring",
     "read": {
       "file": {
-        "/sys/bus/usb/devices/*": [ "list", "read" ]
+        "/sys/bus/usb/devices/*": [ "list", "read" ],
+        "/tmp/modem_status.json": [ "read" ]
       }
     },
     "write": {}
