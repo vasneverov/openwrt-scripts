@@ -1,0 +1,227 @@
+'use strict';
+'require view';
+'require fs';
+
+return view.extend({
+	load: function() {
+		return Promise.all([
+			fs.list('/sys/bus/usb/devices/').then(function(entries) {
+				var devices = entries.filter(function(e) {
+					return (e.name.match(/^\d+-\d+$/) || e.name.match(/^\d+-\d+\.\d+$/));
+				});
+				return Promise.all(devices.map(function(dev) {
+					var base = '/sys/bus/usb/devices/' + dev.name;
+					return Promise.all([
+						Promise.resolve(dev.name),
+						fs.read(base + '/idVendor').catch(nop),
+						fs.read(base + '/idProduct').catch(nop),
+						fs.read(base + '/manufacturer').catch(nop),
+						fs.read(base + '/product').catch(nop),
+						fs.read(base + '/serial').catch(nop),
+						fs.read(base + '/speed').catch(nop),
+						fs.read(base + '/bDeviceClass').catch(nop),
+						fs.read(base + '/bNumConfigurations').catch(nop)
+					]);
+				}));
+			}),
+			fs.read('/tmp/modem_status.json').catch(function() { return '{}'; }).then(function(data) {
+				try { return JSON.parse(data); } catch(e) { return {}; }
+			})
+		]);
+	},
+
+	render: function(data) {
+		var devices = data[0];
+		var m = data[1] || {};
+
+		var view = E('div', { 'class': 'cbi-map' }, [
+			E('h2', { 'class': 'cbi-page-title' }, [
+				E('span', {}, [ '\uD83D\uDCE1 Modem Status / Состояние модема' ])
+			])
+		]);
+
+		if (!devices || devices.length === 0) {
+			view.appendChild(_empty());
+			return view;
+		}
+
+		for (var d = 0; d < devices.length; d++) {
+			var dev = devices[d];
+			view.appendChild(_deviceCard(dev[0], dev[1], dev[2], dev[3], dev[4], dev[5], dev[6], dev[7], dev[8]));
+		}
+
+		view.appendChild(_signalCard(m));
+		view.appendChild(_signalQualityCard(m));
+		view.appendChild(_actionsCard());
+		return view;
+	}
+});
+
+function nop() { return null; }
+
+function _empty() {
+	return E('div', { 'class': 'cbi-section', style: 'padding:32px;text-align:center;color:#999' }, [
+		E('span', {}, [ '\uD83D\uDD0C USB модем не обнаружен' ])
+	]);
+}
+
+function _deviceCard(name, vendorId, prodId, manuf, prod, serial, speed, devClass, numCfg) {
+	var isModem = /^(3566|12d1|2c7c|0bdb|1bbb|19d2|0f3d|413c)$/.test(vendorId);
+	var ms = devClass === '08';
+	var clr = ms ? '#FF9800' : '#4CAF50';
+	var bg  = ms ? '#FFF3E0' : '#E8F5E9';
+	return E('div', { 'class': 'cbi-section', style: 'margin-bottom:8px' }, [
+		E('h3', { 'class': 'cbi-section-title' }, [ '\uD83D\uDCF1 USB устройство (' + (name || '?') + ')' ]),
+		E('table', { 'class': 'cbi-section-table' }, [
+			_tr('Производитель', manuf || '\u2014'),
+			_tr('Модель', prod || '\u2014'),
+			_tr('VID:PID', (vendorId||'?') + ' :' + (prodId||'?')),
+		]),
+		E('div', { style: 'background:'+bg+';border:2px solid '+clr+';border-radius:4px;padding:8px;margin:8px;text-align:center;font-weight:bold;color:'+clr }, [ ms ? '\u26A0\uFE0F Mass Storage (не переключён)' : '\u2705 Режим модема' ])
+	]);
+}
+
+function _signalCard(m) {
+	var sig = parseInt(m.s) || 0;
+	var n = Math.min(Math.max(sig,0),5);
+	var connected = m.st === '901';
+	var clr = connected ? '#4caf50' : '#999';
+	var cols = ['#e74c3c','#e67e22','#f1c40f','#8bc34a','#4caf50'];
+	var bars = E('div', { style: 'display:flex;align-items:flex-end;gap:3px;height:28px' });
+	for (var i=0; i<5; i++) {
+		var h = (i+1)*5;
+		bars.appendChild(E('div', { style: 'width:16px;height:'+h+'px;background:'+(i<n?cols[i]:'#ddd')+';border-radius:2px 2px 0 0' }));
+	}
+	var fwOn = m.fw === '1';
+
+	// Left column: network
+	var left = E('table', { 'class': 'cbi-section-table' }, [
+		_tr('Сигнал', bars),
+		_tr('Регистрация', E('span', { style: 'color:'+clr+';font-weight:bold' }, [ connected ? (m.n||'?') : 'нет сети' ])),
+		_tr('Оператор', E('span', { style: 'font-weight:bold' }, [ m.o || '\u2014' ])),
+		_tr('IP', E('span', { style: 'font-family:monospace' }, [ m.i || '\u2014' ])),
+		_tr('Скорость DL', (Math.round(parseInt(m.dr||0)/1024)) + ' KB/s'),
+		_tr('Скорость UL', (Math.round(parseInt(m.ur||0)/1024)) + ' KB/s'),
+		_tr('В соединении', _fmtTime(parseInt(m.ct||0))),
+	]);
+
+	// Right column: modem info
+	var right = E('table', { 'class': 'cbi-section-table' }, [
+		_tr('Модель', m.md || '\u2014'),
+		_tr('FW', m.fv || '\u2014'),
+		_tr('IMEI', m.im || '\u2014'),
+		_tr('Номер', m.ms || '\u2014'),
+		_tr('APN', m.ap || '\u2014'),
+		_tr('Firewall', E('span', { style: 'font-weight:bold;color:'+(fwOn?'#e74c3c':'#4caf50') }, [ fwOn ? 'ВКЛ' : 'ВЫКЛ' ])),
+		_tr('Скачано', (Math.round(parseInt(m.td||0)/1073741824*10)/10) + ' GB'),
+		_tr('Отправлено', (Math.round(parseInt(m.tu||0)/1073741824*10)/10) + ' GB'),
+	]);
+
+	return E('div', { 'class': 'cbi-section', style: 'margin-bottom:8px' }, [
+		E('h3', { 'class': 'cbi-section-title' }, [ '\uD83D\uDCF6 Сеть / Network' ]),
+		E('div', { style: 'display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:4px 8px 8px' }, [ left, right ])
+	]);
+}
+
+function _fmtTime(sec) {
+	if (!sec) return '\u2014';
+	var h = Math.floor(sec / 3600);
+	var m = Math.floor((sec % 3600) / 60);
+	return h + 'ч ' + m + 'м';
+}
+
+// ── Качество сигнала ── 2 колонки, белый ползунок ──
+function _signalQualityCard(m) {
+	var hasSignal = m.rsrp && m.rsrp !== '?';
+
+	var section = E('div', { 'class': 'cbi-section', style: 'margin-bottom:8px' }, [
+		E('h3', { 'class': 'cbi-section-title' }, [ '\uD83D\uDCA1 Качество сигнала / Signal Quality' ])
+	]);
+
+	if (!hasSignal) {
+		section.appendChild(E('div', { style: 'padding:16px;text-align:center;color:#999' }, [ 'Нет данных сигнала' ]));
+		return section;
+	}
+
+	var rsrp = parseInt(m.rsrp);
+	var rsrq = parseInt(m.rsrq);
+	var rssi = parseInt(m.rssi);
+	var sinr = parseInt(m.sinr);
+
+	// Сетка 2x2
+	var grid = E('div', { style: 'display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:8px' });
+
+	grid.appendChild(_sigBox('RSRP', 'Сила сигнала', rsrp, 'dBm', -130, -80,
+		{ excellent: -90, good: -105, fair: -115, poor: -125 }));
+	grid.appendChild(_sigBox('RSSI', 'Уровень сигнала', rssi, 'dBm', -120, -50,
+		{ excellent: -65, good: -75, fair: -85, poor: -95 }));
+	grid.appendChild(_sigBox('RSRQ', 'Качество', rsrq, 'dB', -25, -5,
+		{ excellent: -9, good: -12, fair: -16, poor: -20 }));
+	grid.appendChild(_sigBox('SINR', 'Шум/сигнал', sinr, 'dB', -10, 30,
+		{ excellent: 20, good: 13, fair: 5, poor: 0 }));
+
+	section.appendChild(grid);
+
+	// Cell / PCI
+	section.appendChild(E('div', { style: 'padding:6px 12px 10px;font-size:11px;color:#999;display:flex;gap:20px;border-top:1px solid #f0f0f0' }, [
+		E('span', {}, [ 'Cell ID: ' + E('strong', { style: 'font-family:monospace;color:#666' }, [ m.cell_id || '\u2014' ]) ]),
+		E('span', {}, [ 'PCI: ' + E('strong', { style: 'font-family:monospace;color:#666' }, [ m.pci || '\u2014' ]) ])
+	]));
+
+	return section;
+}
+
+// Один блок-карточка параметра сигнала
+function _sigBox(abbr, desc, value, unit, min, max, thresholds) {
+	var v = Math.max(min, Math.min(max, value));
+	var pct = ((v - min) / (max - min)) * 100;
+	pct = Math.max(0, Math.min(100, pct));
+	var rating = _signalRating(value, thresholds);
+
+	var grad = 'linear-gradient(to right, #e74c3c 0%, #e67e22 25%, #f1c40f 50%, #8bc34a 75%, #2ecc71 100%)';
+
+	// Шкала с белым ползунком на всю высоту
+	var bar = E('div', { style: 'position:relative;height:20px;border-radius:10px;background:'+grad+';margin:4px 0' });
+	var thumb = E('div', { style: 'position:absolute;left:calc('+pct+'% - 4px);top:0;width:8px;height:20px;background:#fff;border-radius:4px;box-shadow:0 1px 5px rgba(0,0,0,0.45);border:1px solid rgba(0,0,0,0.15);transition:left 0.25s;z-index:2' });
+	bar.appendChild(thumb);
+
+	// Нижняя строка: значение + оценка
+	var bottom = E('div', { style: 'display:flex;justify-content:space-between;align-items:center;font-size:11px' }, [
+		E('span', { style: 'font-weight:bold;color:#444' }, [ (value > 0 ? '+' : '') + value + ' ' + unit ]),
+		E('span', { style: 'font-weight:bold;color:'+rating.color }, [ rating.label ])
+	]);
+
+	return E('div', { style: 'padding:6px 8px;border:1px solid #e8e8e8;border-radius:6px;background:#fafafa' }, [
+		E('div', { style: 'font-size:11px;font-weight:bold;color:#555;margin-bottom:2px' }, [ abbr + ' (' + desc + ')' ]),
+		bar,
+		bottom
+	]);
+}
+
+function _signalRating(value, thresholds) {
+	if (value >= thresholds.excellent) return { label: 'отлично', color: '#27ae60' };
+	if (value >= thresholds.good)    return { label: 'хорошо', color: '#2ecc71' };
+	if (value >= thresholds.fair)    return { label: 'норма', color: '#f39c12' };
+	if (value >= thresholds.poor)    return { label: 'плохо', color: '#e67e22' };
+	return { label: 'критично', color: '#e74c3c' };
+}
+
+
+
+function _actionsCard() {
+	return E('div', { 'class': 'cbi-section', style: 'margin-bottom:8px' }, [
+		E('h3', { 'class': 'cbi-section-title' }, [ '\u2699\uFE0F Действия / Actions' ]),
+		E('div', { style: 'padding:8px;display:flex;gap:6px;flex-wrap:wrap' }, [
+			E('button', { 'class': 'cbi-button cbi-button-reload', onclick: 'window.location.reload()' }, [ '\uD83D\uDD04 Обновить' ]),
+			E('a', { 'class': 'cbi-button cbi-button-apply', href: '/cgi-bin/modem-action?action=fw-toggle' }, [ '\uD83D\uDD25 Firewall ВКЛ/ВЫКЛ' ]),
+			E('a', { 'class': 'cbi-button cbi-button-apply', href: '/cgi-bin/modem-action?action=reboot', onclick: 'return confirm(\"Перезагрузить модем?\")' }, [ '\uD83D\uDD04 Перезагрузка модема' ]),
+		])
+	]);
+}
+
+function _tr(l, v) {
+	return E('tr', { 'class': 'cbi-section-table-row' }, [
+		E('td', { 'class': 'cbi-value-field', style: 'width:180px;font-weight:bold;padding:4px 8px' }, [ E('span', {}, [ l ]) ]),
+		E('td', { 'class': 'cbi-value-field', style: 'padding:4px 8px' }, [ typeof v === 'string' ? E('span', {}, [ v ]) : v ])
+	]);
+}
