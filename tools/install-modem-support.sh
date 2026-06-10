@@ -525,7 +525,35 @@ fi
 echo " ${INFO} Приоритет: modem(10) > wan(20) > wwan(30)"
 
 echo ""
+# ── Пост-установка: авто-подъём eth2 после ребута ──
+echo "${CYAN}━━━ Пост-установка: авто-подъём eth2 ──────────${NC}"
+
+if [ -n "$MODEM_IFACE" ]; then
+    # auto=1 в network
+    uci set network.modem.auto='1' 2>/dev/null || true
+    uci commit network 2>/dev/null || true
+    
+    # Добавить в rc.local
+    if ! grep -q 'ip link set $MODEM_IFACE up' /etc/rc.local 2>/dev/null; then
+        sed -i "/^exit 0/i ip link set $MODEM_IFACE up 2>/dev/null\nsleep 5\nudhcpc -i $MODEM_IFACE -n -q 2>/dev/null &" /etc/rc.local 2>/dev/null || true
+        echo " ${PASS} rc.local: авто-подъём $MODEM_IFACE добавлен"
+    else
+        echo " ${SKIP} rc.local: уже есть"
+    fi
+fi
+
+# Сбросить LuCI кеш (меню может не появиться после ребута)
+rm -rf /tmp/luci-* /tmp/luci-modulecache/* 2>/dev/null
+/etc/init.d/rpcd restart 2>/dev/null || true
+/etc/init.d/uhttpd restart 2>/dev/null || true
+echo " ${PASS} LuCI кеш сброшен"
+echo ""
+
 echo "${GREEN}✅ Modem support установлен!${NC}"
 echo "   Для просмотра: открой LuCI → Services → Modem"
 echo "   Или обнови страницу если уже открыта."
+echo ""
+echo " ${YELLOW}⚠ После ребута роутера:${NC}"
+echo "   Если модем не поднялся — выполни:"
+echo "     ip link set $MODEM_IFACE up && udhcpc -i $MODEM_IFACE"
 echo ""
